@@ -17,10 +17,17 @@ object Main extends App {
 
   // println('A')
 
+  println('A')
   helloActor ! "hello" // String "hello"
+  println('B')
   helloActor ! "Some other message other than hello" // String
+  println('C')
   helloActor ! 1234 // Int
+  println('D')
   helloActor ! 'c' // Char
+  println('E')
+  helloActor ! helloActor
+  println('F')
 
 }
 
