@@ -9,5 +9,5 @@ https://github.com/DanielaSfregola/twitter4s
 Twitter API/dev account application:
 https://developer.twitter.com/en/apply-for-access
 
-Twitter4s Site Streaming
-https://github.com/DanielaSfregola/twitter4s#site-stream
+DZone Article on Akka streaming:
+https://dzone.com/articles/streaming-twitter-api-akka-and
