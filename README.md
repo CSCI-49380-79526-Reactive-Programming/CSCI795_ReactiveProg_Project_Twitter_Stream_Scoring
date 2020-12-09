@@ -1,11 +1,16 @@
 # CSCI795_ReactiveProg_Project
 Presentation for CSCI 795 Reactive Programming Course - Hunter College FA'20
 
-## TODO:
+## Run Instructions
+1. Checkout this repo.
+2. `cd` into the root of this project
+3. Run `./sbt` to run the build tool.
+4. Run `reStart` to run the application and hot restart the app after code changes.
 
+## TODO:
 ### Ye:
-- Set up Akka dev environment and setup instructions [IN PROGRESS]
-  - Import this library: https://github.com/DanielaSfregola/twitter4s
+- Set up Akka dev environment and setup instructions [DONE]
+  - Import this library: https://github.com/DanielaSfregola/twitter4s [DONE]
 - Connect to Twitter API
   - Need to create DEV account and sign up
 - Get Akka stream to process live Tweet updates

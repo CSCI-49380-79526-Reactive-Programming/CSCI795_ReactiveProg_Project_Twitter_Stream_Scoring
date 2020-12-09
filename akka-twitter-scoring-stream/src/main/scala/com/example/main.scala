@@ -5,6 +5,10 @@ import com.github.tototoshi.csv._
 import java.io.File
 import java.time._
 
+// Twitter4s streaming library
+import com.danielasfregola.twitter4s.TwitterRestClient
+import com.danielasfregola.twitter4s.TwitterStreamingClient
+
 class HelloActor extends Actor {
   def receive = {
     case "hello"  => println("hello back at you")
@@ -44,6 +48,16 @@ object Main extends App {
   stream.next // Drop the header row from the stream iterator
   // Add all senators as actors to our system
   stream foreach addPolitician(system)
+
+ /*
+    Import works ok, uncommenting it will error as we need to provide
+    the necessary env props (Twitter API keys) for it to load properly.
+    Will look into this as part of my next task to integrate with Twitter API. -Ye
+  */
+  // val restClient = TwitterRestClient()
+  // val streamingClient = TwitterStreamingClient()
+
+  // println('A')
 
   println('A')
   helloActor ! "hello" // String "hello"
