@@ -1,88 +1,53 @@
-import akka.actor.Actor
-import akka.actor.ActorRef
-import akka.actor.ActorSystem
-import akka.actor.Props
+// Standard dependencies
+import akka.actor.{Actor, ActorRef, Props, ActorSystem}
 import com.github.tototoshi.csv._
 import java.io.File
 import java.time._
+
+// ScalaFX GUI
+import scalafx.application.{Platform, JFXApp}
+import scalafx.application.JFXApp.PrimaryStage
+import scalafx.beans.property.{ReadOnlyStringWrapper, StringProperty}
+import scalafx.collections.ObservableBuffer
+import scalafx.scene.Scene
+import scalafx.scene.control.{TableCell, TableColumn, TableView}
 
 // Twitter4s streaming library
 import com.danielasfregola.twitter4s.entities._
 import com.danielasfregola.twitter4s.TwitterRestClient
 import com.danielasfregola.twitter4s.TwitterStreamingClient
 
-class HelloActor extends Actor {
-  def receive = {
-    case "hello"  => println("hello back at you")
-                     println(sender)
 
-    case s:String => println("Received message: " + s)
-    case n:Int    => println("Received integer: " + n)
-    case _        => println("huh?")
-  }
+// A unique key for identifying politicians.
+class PoliticianKey(val name : String, val party : String, val state : String) {}
+
+
+// A row for a politician in the GUI.
+// NOTE: Is equatable with PoliticianKey (for convience).
+class PoliticianRow(key_ : PoliticianKey, score_ : Double) {
+  val key   = key_
+  val name  = new ReadOnlyStringWrapper(this, "name" , key_.name )
+  val party = new ReadOnlyStringWrapper(this, "party", key_.party)
+  val state = new ReadOnlyStringWrapper(this, "state", key_.state)
+  val score = new StringProperty(       this, "score", score_.toString)
+
+  def canEqual(a: Any) = a.isInstanceOf[PoliticianRow]
+
+  override def equals(that: Any): Boolean =
+        that match {
+            case that: PoliticianKey => {
+                this.key == that
+            }
+            case that: PoliticianRow => {
+                that.canEqual(this) &&
+                this.key == that.key
+            }
+            case _ => false
+        }
 }
 
 
-class Critic extends Actor {
-
-  val scores = new scala.collection.mutable.HashMap[String, TwitterScoring]
-
-  def receive = {
-    case (politician: String, tweet: Tweet) =>
-      if (scores(politician).update(tweet)) {
-        // TODO update TUI/GUI
-      }
-  }
-}
-
-
-class TwitterScoring {
-  // Two sets of tweet IDs
-  val disputed   = new scala.collection.mutable.HashSet[Long]
-  val undisputed = new scala.collection.mutable.HashSet[Long]
-
-  def update(tweet : Tweet) : Boolean = {
-    val id      = tweet.id
-    val flagged = !tweet.withheld_in_countries.isEmpty
-    if (disputed contains id) {
-      // We already processed this tweet as disputed
-      if (!flagged) {
-        // However it's status has changed to undisputed
-        disputed   - id
-        undisputed + id
-        return true
-       }
-       // And no change is required
-    }
-    else if (undisputed contains id) {
-      // We processed this tweet as undisputed,
-      if (flagged) {
-        // However it's status has changed to disputed
-        disputed + id
-        undisputed - id
-        return true
-      }
-      // And no change is required
-    }
-    else {
-      // We have *not* processed this tweet
-      if (flagged) {
-        disputed + id
-      }
-      else {
-        undisputed - id
-      }
-      return true
-    }
-    return false
-  }
-  
-  def pinochiccoScore() : Double = {
-    disputed.size / (disputed.size + undisputed.size)
-  }
-
-}
-
+// Politician Actor which listens to the Twitter stream of the associated politician.
 class Politician( val updater    : ActorRef
                 , val name       : String
                 , val party      : String
@@ -91,6 +56,13 @@ class Politician( val updater    : ActorRef
                 , val term_start : Instant
                 , val term_end   : Instant
                 ) extends Actor {
+
+  val key = new PoliticianKey(name, party, state)
+
+  // The following lines exist only to test the functionality of the Critic actor.
+  // It has the nice side effect of populating the GUI until we get real Twitter integration.
+  val testTweet = new Tweet(created_at=Instant.now(),id=5,id_str="5", source="", text="Hello World")
+  updater ! (key,testTweet)
 
   // TODO:
   //   - Connect to Twitter
@@ -105,14 +77,147 @@ class Politician( val updater    : ActorRef
 
 }
 
-object Main extends App {
-  val senatorsFile = "us-senate.csv" 
-  val system       = ActorSystem("DemoSystem")
-  val helloActor   = system.actorOf(Props[HelloActor], name = "helloactor")
-  val critic       = system.actorOf(Props[Critic], name = "critic")
 
+// Actor who maintains the scoring of all politicians and updates the GUI.
+// Listens for updates from the Politician actors for new Tweets to be processed.
+class Critic(rows_ : ObservableBuffer[PoliticianRow]) extends Actor {
+
+  val scoring = new scala.collection.mutable.HashMap[PoliticianKey, TwitterScoring]
+  var rows    = rows_
+
+  def receive = {
+    case (politician: PoliticianKey, tweet: Tweet) =>
+       scoring.get(politician) match {
+         case Some(twitterScore) =>
+           // We already have a score for this politician
+           // We update the state
+           twitterScore.update(tweet) match {
+             case Some(v) =>
+               // The score was updated,
+               // We need to update the GUI
+               val i = rows.indexOf(politician)
+               rows(i).score.value = v.toString
+             case None => () // Nothing to update
+           }
+         
+         case None =>
+           // Politician is new
+           // New to add them to the scoring and the GUI
+           scoring.addOne(politician, new TwitterScoring(tweet))
+           val score = scoring(politician).pinochiccoScore
+           rows.append(new PoliticianRow(politician, score))
+       }
+  }
+}
+
+
+// A Twitter score object.
+// Intended to be associated with a politician.
+// Internally keeps a mutable state of Tweets received as either disputed or undisputed.
+// Can provide a "Pinochiocco Score" based on the current internal state.
+class TwitterScoring(tweet_ : Tweet) {
+  // Two sets of tweet IDs
+  val disputed   = new scala.collection.mutable.HashSet[Long]
+  val undisputed = new scala.collection.mutable.HashSet[Long]
+
+  if (flagged(tweet_)) {
+    disputed.add(tweet_.id)
+  }
+  else {
+    undisputed.add(tweet_.id)
+  }
+
+  def flagged(tweet : Tweet) : Boolean = {
+    !tweet.withheld_in_countries.isEmpty
+  }
+
+  def update(tweet : Tweet) : Option[Double] = {
+    val id      = tweet.id
+    if (disputed contains id) {
+      // We already processed this tweet as disputed
+      if (!flagged(tweet)) {
+        // However it's status has changed to undisputed
+        disputed.remove(id)
+        undisputed.add(id)
+        return Some(pinochiccoScore)
+       }
+       // And no change is required
+    }
+    else if (undisputed contains id) {
+      // We processed this tweet as undisputed,
+      if (flagged(tweet)) {
+        // However it's status has changed to disputed
+        disputed.add(id)
+        undisputed.remove(id)
+        return Some(pinochiccoScore)
+      }
+      // And no change is required
+    }
+    else {
+      // We have *not* processed this tweet
+      if (flagged(tweet)) {
+        disputed.add(id)
+      }
+      else {
+        undisputed.add(id)
+      }
+      return Some(pinochiccoScore)
+    }
+    return None
+  }
+  
+  def pinochiccoScore() : Double = {
+    disputed.size / (disputed.size + undisputed.size)
+  }
+
+}
+
+
+object Main extends JFXApp {
+  // Create an empty buffer of rows for politicians
+  // We will fill this dynamically layer
+  val rows  = ObservableBuffer[PoliticianRow]()
+
+  // Construct the GUI
+  stage = new PrimaryStage {
+    title.value = "CSCI-795 — Politician Pinochicco Presentation"
+    scene = new Scene {
+      content = new TableView[PoliticianRow](rows) {
+        columns ++= List(
+          new TableColumn[PoliticianRow, String] {
+            text = "Name"
+            cellValueFactory = { _.value.name }
+            prefWidth = 170
+          },
+          new TableColumn[PoliticianRow, String] {
+            text = "Party"
+            cellValueFactory = { _.value.party }
+            prefWidth = 100
+          },
+          new TableColumn[PoliticianRow, String] {
+            text = "State"
+            cellValueFactory = { _.value.state }
+            prefWidth = 120
+          },
+          new TableColumn[PoliticianRow, String] {
+            text = "Score"
+            cellValueFactory = { _.value.score }
+            prefWidth = 80
+          }
+        )
+      }
+    }
+  }
+
+  // Set up the actor system and core actors
+  val system = ActorSystem("DemoSystem")
+  val critic = system.actorOf(Props(new Critic(rows)), name = "critic")
+
+  // Get the politician input data
+  val senatorsFile = "us-senate.csv" 
   val stream  = CSVReader.open(new File(senatorsFile)).iterator
   stream.next // Drop the header row from the stream iterator
+  
   // Add all senators as actors to our system
   stream foreach addPolitician(system)(critic)
 
@@ -123,20 +228,6 @@ object Main extends App {
   */
   // val restClient = TwitterRestClient()
   // val streamingClient = TwitterStreamingClient()
-
-  // println('A')
-
-  println('A')
-  helloActor ! "hello" // String "hello"
-  println('B')
-  helloActor ! "Some other message other than hello" // String
-  println('C')
-  helloActor ! 1234 // Int
-  println('D')
-  helloActor ! 'c' // Char
-  println('E')
-  helloActor ! helloActor
-  println('F')
 
   def addPolitician(system : ActorSystem)(updater : ActorRef )(dataRow : Seq[String]) : Unit = {
     // Convert Seq to VEctor for more efficient random access
@@ -150,7 +241,6 @@ object Main extends App {
     val begin   = Instant.parse(vec(28) + "T00:00:00.00Z")
     val finish  = Instant.parse(vec(29) + "T00:00:00.00Z")
     // Add a new Politician actor from the row data
-    println("Adding " + name)
     system.actorOf(Props(new Politician(updater, name, party, state, twitter, begin, finish)), name = id)
   }
 
