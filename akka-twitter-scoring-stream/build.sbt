@@ -14,7 +14,7 @@ libraryDependencies ++= Seq(
   "ch.qos.logback" % "logback-classic" % "1.2.3",
   "com.typesafe.akka" %% "akka-actor-testkit-typed" % akkaVersion % Test,
   "org.scalatest" %% "scalatest" % "3.1.0" % Test,
-  "com.danielasfregola" %% "twitter4s" % "7.0"
+  "com.danielasfregola" %% "twitter4s" % "7.0",
   "com.github.tototoshi" %% "scala-csv" % "1.3.6"
 )
 
