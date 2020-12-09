@@ -1,6 +1,9 @@
 import akka.actor.Actor
 import akka.actor.ActorSystem
 import akka.actor.Props
+import com.github.tototoshi.csv._
+import java.io.File
+import java.time._
 
 class HelloActor extends Actor {
   def receive = {
@@ -11,11 +14,36 @@ class HelloActor extends Actor {
   }
 }
 
-object Main extends App {
-  val system = ActorSystem("DemoSystem")
-  val helloActor = system.actorOf(Props[HelloActor], name = "helloactor")
+class Politician( val name       : String
+                , val party      : String
+                , val state      : String
+                , val twitter    : String
+                , val term_start : Instant
+                , val term_end   : Instant
+                ) extends Actor {
 
-  // println('A')
+  // TODO:
+  //   - Connect to Twitter
+  //   - Set up real time stream
+  //   - Get Twitter profile information
+  //   - Calculate first Instant we can collect data from
+  //   - HTTP query for historical data
+
+  def receive = {
+    case path : String => 
+  }
+
+}
+
+object Main extends App {
+  val senatorsFile = "us-senate.csv" 
+  val system       = ActorSystem("DemoSystem")
+  val helloActor   = system.actorOf(Props[HelloActor], name = "helloactor")
+
+  val stream  = CSVReader.open(new File(senatorsFile)).iterator
+  stream.next // Drop the header row from the stream iterator
+  // Add all senators as actors to our system
+  stream foreach addPolitician(system)
 
   println('A')
   helloActor ! "hello" // String "hello"
@@ -29,5 +57,19 @@ object Main extends App {
   helloActor ! helloActor
   println('F')
 
-}
+  def addPolitician(system : ActorSystem)(dataRow : Seq[String]) : Unit = {
+    // Convert Seq to VEctor for more efficient random access
+    val vec     = dataRow.toVector
+    // Extract relevent fields from the row
+    val name    = vec(15)
+    val id      = vec(16)
+    val party   = vec(14)
+    val state   = vec( 0)
+    val twitter = vec(49)
+    val begin   = Instant.parse(vec(28) + "T00:00:00.00Z")
+    val finish  = Instant.parse(vec(29) + "T00:00:00.00Z")
+    // Add a new Politician actor from the row data
+    system.actorOf(Props(new Politician(name, party, state, twitter, begin, finish)), name = id)
+  }
 
+}
