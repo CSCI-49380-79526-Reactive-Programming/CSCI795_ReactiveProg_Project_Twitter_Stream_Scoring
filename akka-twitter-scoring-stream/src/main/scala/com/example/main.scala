@@ -65,9 +65,10 @@ class Politician( secrets_       : TwitterSecrets
                 , val term_end   : Instant
                 ) extends Actor {
 
-  // Initial connection to Twitter to query the politician's user data
   private val key = new PoliticianKey(name, party, state)
   private val (consumerToken, accessToken) = secrets_.getTokens()
+
+  // Initial connection to Twitter to query the politician's user data
   private val restClient = new TwitterRestClient(consumerToken, accessToken)
   private val userData = Await.result(restClient.user(screen_name = twitter), Duration.Inf).data
   private val userID = userData.id
@@ -80,8 +81,8 @@ class Politician( secrets_       : TwitterSecrets
 
   // The following lines exist only to test the functionality of the Critic actor.
   // It has the nice side effect of populating the GUI until we get real Twitter integration.
-  //val testTweet = new Tweet(created_at=Instant.now(),id=5,id_str="5", source="", text="We love scala! All aboard the scala train!")
-  //updater ! (key,testTweet)
+  val testTweet = new Tweet(created_at=Instant.now(),id=5,id_str="5", source="", text="We love scala! All aboard the scala train!")
+  updater ! (key,testTweet)
 
   // TODO:
   //   - Connect to Twitter
@@ -262,21 +263,20 @@ class TwitterScoring(wordRanking_ : Map[String,Int], tweet_ : Tweet) {
 
 
 class TwitterSecrets(filePath_ : String) {
-  private val csvData   = CSVReader.open(new File(filePath_)).all()
+  private val csvData = CSVReader.open(new File(filePath_)).all()
   private val consumerKey       = csvData(1)(0)
   private val consumerSecret    = csvData(1)(1)
   private val accessTokenKey    = csvData(1)(2)
   private val accessTokenSecret = csvData(1)(3)
 
-  val consumerToken = ConsumerToken(
-    key = consumerKey,
-    secret = consumerSecret
+  private val consumerToken = ConsumerToken(
+    key     = consumerKey,
+    secret  = consumerSecret
   )
-  val accessToken = AccessToken(
-    key = accessTokenKey,
-    secret = accessTokenSecret
+  private val accessToken = AccessToken(
+    key     = accessTokenKey,
+    secret  = accessTokenSecret
   )
-
 
   def getTokens() : (ConsumerToken, AccessToken) = {
     return (consumerToken, accessToken)
@@ -298,7 +298,7 @@ object Main extends JFXApp {
   val wordRanks = gatherWordPositivity(wordsFile)
 
   // Set up the actor system and core actors
-  val system = ActorSystem("pinocchioScoring")
+  val system = ActorSystem("Politician-Scoring")
   val critic = system.actorOf(Props(new Critic(wordRanks, rows)), name = "critic")
 
   // Get the Twitter authentication secrets
@@ -313,23 +313,16 @@ object Main extends JFXApp {
   // Add all senators as actors to our system
   stream foreach addPolitician(system)(critic)
 
-  // Twitter4s Streaming Init
-  val consumerToken = ConsumerToken(
-    key = "<API KEY>",
-    secret = "<API_SECRET>"
-  )
-  val accessToken = AccessToken(
-    key = "<ACCESS_KEY>",
-    secret = "<ACCESS_SECRET>"
-  )
+/*
   // val restClient = TwitterRestClient()
+  val (consumerToken, accessToken) = secrets.getTokens()
   val streamingClient = TwitterStreamingClient(consumerToken, accessToken)
   def printTweetText: PartialFunction[StreamingMessage, Unit] = {
     case tweet: Tweet => println(tweet.text)
   }
 
   streamingClient.sampleStatuses(stall_warnings = true)(printTweetText)
-
+*/
 
   def addPolitician(system : ActorSystem)(updater : ActorRef )(dataRow : Seq[String]) : Unit = {
     // Convert Seq to Vector for more efficient random access
