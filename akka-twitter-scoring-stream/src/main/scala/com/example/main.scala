@@ -80,27 +80,10 @@ class Politician( secrets_       : TwitterSecrets
   // The earliest time we can query tweets for this politician
   private val userEpoch  = List(userData.created_at, term_start, Instant.now().minus(7, ChronoUnit.DAYS)).max
 
-  // Set up a stream of live tweets from the politician
-  private val streamingClient = TwitterStreamingClient(consumerToken, accessToken)
-  streamingClient.filterStatuses(follow = Seq(userID), stall_warnings = true)(forwardTweetText)
-
   // The following lines exist only to test the functionality of the Critic actor.
   // It has the nice side effect of populating the GUI until we get real Twitter integration.
   val testTweet = new Tweet(created_at=Instant.now(),id=5,id_str="5", source="", text="We love scala! All aboard the scala train!")
   updater ! (key,testTweet)
-
-  // TODO:
-  //   - Connect to Twitter
-  //   - Set up real time stream - Done on the filterStatuses(...) call above
-  //   - Get Twitter profile information - Done on the rest call above
-  //   - Calculate first Instant we can collect data from
-  //   - HTTP query for historical data
-
-  def forwardTweetText: PartialFunction[StreamingMessage, Unit] = {
-    case tweet: Tweet =>
-      println("Tweet Received: [@" + twitter + "] - " + tweet.text)
-     updater ! (key,tweet)
-  }
 
   def receive = {
     case path : String => 
@@ -316,18 +299,26 @@ object Main extends JFXApp {
   stream.next // Drop the header row from the stream iterator
   
   // Add all senators as actors to our system
-  stream foreach addPolitician(system)(critic)
+  // stream foreach addPolitician(system)(critic)
 
-/*
-  // val restClient = TwitterRestClient()
   val (consumerToken, accessToken) = secrets.getTokens()
   val streamingClient = TwitterStreamingClient(consumerToken, accessToken)
-  def printTweetText: PartialFunction[StreamingMessage, Unit] = {
-    case tweet: Tweet => println(tweet.text)
+
+  def printFilteredStatusTweet: PartialFunction[StreamingMessage, Unit] = {
+    case tweet: Tweet => {
+      val receiveTweetUserId = tweet.user.get.id
+      val receiveTweetUserScreenName = tweet.user.get.screen_name
+      println("\n@" + receiveTweetUserScreenName + " (" + receiveTweetUserId + ") : " + tweet.text + "\n")
+      // Broadcast to politician key generator here -> to borad cast to critic actor.
+      // Send twitter ID, and tweet text.
+    }
   }
 
-  streamingClient.sampleStatuses(stall_warnings = true)(printTweetText)
-*/
+  // TODO: Add all the rest of the politician ID once we are able to consolidate all the politician ids.
+  val MY_TWITTER_ID = 1207501491877138433L
+
+  streamingClient.filterStatuses(stall_warnings = true, follow = Seq(MY_TWITTER_ID))(printFilteredStatusTweet)
+
 
   def addPolitician(system : ActorSystem)(updater : ActorRef )(dataRow : Seq[String]) : Unit = {
     // Convert Seq to Vector for more efficient random access
