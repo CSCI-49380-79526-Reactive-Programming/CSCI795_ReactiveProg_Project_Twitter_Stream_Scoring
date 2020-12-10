@@ -2,8 +2,10 @@
 import akka.actor.{Actor, ActorRef, Props, ActorSystem}
 import com.github.tototoshi.csv._
 import java.io.File
-import java.time._
+import java.time.Instant
 import scala.collection.immutable.Map
+import scala.concurrent.Await
+import scala.concurrent.duration._
 
 // ScalaFX GUI
 import scalafx.application.{Platform, JFXApp}
@@ -15,6 +17,8 @@ import scalafx.scene.control.{TableCell, TableColumn, TableView}
 
 // Twitter4s streaming library
 import com.danielasfregola.twitter4s.entities._
+import com.danielasfregola.twitter4s.http.clients.rest.users._
+import com.danielasfregola.twitter4s.http.clients.streaming.TwitterStream
 import com.danielasfregola.twitter4s.TwitterRestClient
 import com.danielasfregola.twitter4s.TwitterStreamingClient
 import com.danielasfregola.twitter4s.entities.{AccessToken, ConsumerToken, Tweet}
@@ -51,7 +55,8 @@ class PoliticianRow(key_ : PoliticianKey, positivity_ : Double, pinocchio_ : Dou
 
 
 // Politician Actor which listens to the Twitter stream of the associated politician.
-class Politician( val updater    : ActorRef
+class Politician( secrets_       : TwitterSecrets
+                , val updater    : ActorRef
                 , val name       : String
                 , val party      : String
                 , val state      : String
@@ -60,12 +65,23 @@ class Politician( val updater    : ActorRef
                 , val term_end   : Instant
                 ) extends Actor {
 
+  // Initial connection to Twitter to query the politician's user data
   private val key = new PoliticianKey(name, party, state)
+  private val (consumerToken, accessToken) = secrets_.getTokens()
+  private val restClient = new TwitterRestClient(consumerToken, accessToken)
+  private val userData = Await.result(restClient.user(screen_name = twitter), Duration.Inf).data
+  private val userID = userData.id
+  restClient.shutdown()
+  print(userID)
+
+  // Set up a stream of live tweets from the politician
+  private val streamingClient = TwitterStreamingClient(consumerToken, accessToken)
+  streamingClient.siteEvents(follow = Seq(userID), stall_warnings = true)(forwardTweetText)
 
   // The following lines exist only to test the functionality of the Critic actor.
   // It has the nice side effect of populating the GUI until we get real Twitter integration.
-  val testTweet = new Tweet(created_at=Instant.now(),id=5,id_str="5", source="", text="We love scala! All aboard the scala train!")
-  updater ! (key,testTweet)
+  //val testTweet = new Tweet(created_at=Instant.now(),id=5,id_str="5", source="", text="We love scala! All aboard the scala train!")
+  //updater ! (key,testTweet)
 
   // TODO:
   //   - Connect to Twitter
@@ -73,6 +89,12 @@ class Politician( val updater    : ActorRef
   //   - Get Twitter profile information
   //   - Calculate first Instant we can collect data from
   //   - HTTP query for historical data
+
+  def forwardTweetText: PartialFunction[StreamingMessage, Unit] = {
+    case tweet: Tweet =>
+      println(tweet.text)
+     updater ! (key,tweet)
+  }
 
   def receive = {
     case path : String => 
@@ -241,10 +263,25 @@ class TwitterScoring(wordRanking_ : Map[String,Int], tweet_ : Tweet) {
 
 class TwitterSecrets(filePath_ : String) {
   private val csvData   = CSVReader.open(new File(filePath_)).all()
-  val consumerKey       = csvData(1)(0)
-  val consumerSecret    = csvData(1)(1)
-  val accessToken       = csvData(1)(2)
-  val accessTokenSecret = csvData(1)(3)
+  private val consumerKey       = csvData(1)(0)
+  private val consumerSecret    = csvData(1)(1)
+  private val accessTokenKey    = csvData(1)(2)
+  private val accessTokenSecret = csvData(1)(3)
+
+  val consumerToken = ConsumerToken(
+    key = consumerKey,
+    secret = consumerSecret
+  )
+  val accessToken = AccessToken(
+    key = accessTokenKey,
+    secret = accessTokenSecret
+  )
+
+
+  def getTokens() : (ConsumerToken, AccessToken) = {
+    return (consumerToken, accessToken)
+  }
+
 }
 
 
@@ -302,11 +339,11 @@ object Main extends JFXApp {
     val id      = vec(16)
     val party   = vec(14)
     val state   = vec( 0)
-    val twitter = vec(49)
+    val twitter = vec(48)
     val begin   = Instant.parse(vec(28) + "T00:00:00.00Z")
     val finish  = Instant.parse(vec(29) + "T00:00:00.00Z")
     // Add a new Politician actor from the row data
-    system.actorOf(Props(new Politician(updater, name, party, state, twitter, begin, finish)), name = id)
+    system.actorOf(Props(new Politician(secrets, updater, name, party, state, twitter, begin, finish)), name = id)
   }
 
   def constructGUI(rows : ObservableBuffer[PoliticianRow]) : PrimaryStage = {
