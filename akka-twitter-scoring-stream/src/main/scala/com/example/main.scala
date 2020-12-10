@@ -188,35 +188,7 @@ object Main extends JFXApp {
   val rows  = ObservableBuffer[PoliticianRow]()
 
   // Construct the GUI
-  stage = new PrimaryStage {
-    title.value = "CSCI-795 — Politician Pinochicco Presentation"
-    scene = new Scene {
-      content = new TableView[PoliticianRow](rows) {
-        columns ++= List(
-          new TableColumn[PoliticianRow, String] {
-            text = "Name"
-            cellValueFactory = { _.value.name }
-            prefWidth = 170
-          },
-          new TableColumn[PoliticianRow, String] {
-            text = "Party"
-            cellValueFactory = { _.value.party }
-            prefWidth = 100
-          },
-          new TableColumn[PoliticianRow, String] {
-            text = "State"
-            cellValueFactory = { _.value.state }
-            prefWidth = 120
-          },
-          new TableColumn[PoliticianRow, String] {
-            text = "Score"
-            cellValueFactory = { _.value.score }
-            prefWidth = 80
-          }
-        )
-      }
-    }
-  }
+  stage = constructGUI(rows)
 
   // Set up the actor system and core actors
   val system = ActorSystem("DemoSystem")
@@ -243,7 +215,7 @@ object Main extends JFXApp {
   // val streamingClient = TwitterStreamingClient()
 
   def addPolitician(system : ActorSystem)(updater : ActorRef )(dataRow : Seq[String]) : Unit = {
-    // Convert Seq to VEctor for more efficient random access
+    // Convert Seq to Vector for more efficient random access
     val vec     = dataRow.toVector
     // Extract relevent fields from the row
     val name    = vec(15)
@@ -255,6 +227,38 @@ object Main extends JFXApp {
     val finish  = Instant.parse(vec(29) + "T00:00:00.00Z")
     // Add a new Politician actor from the row data
     system.actorOf(Props(new Politician(updater, name, party, state, twitter, begin, finish)), name = id)
+  }
+
+  def constructGUI(rows : ObservableBuffer[PoliticianRow]) : PrimaryStage = {
+    new PrimaryStage {
+        title.value = "CSCI-795 — Politician Pinochicco Presentation"
+        scene = new Scene {
+          content = new TableView[PoliticianRow](rows) {
+            columns ++= List(
+              new TableColumn[PoliticianRow, String] {
+                text = "Name"
+                cellValueFactory = { _.value.name }
+                prefWidth = 170
+              },
+              new TableColumn[PoliticianRow, String] {
+                text = "Party"
+                cellValueFactory = { _.value.party }
+                prefWidth = 100
+              },
+              new TableColumn[PoliticianRow, String] {
+                text = "State"
+                cellValueFactory = { _.value.state }
+                prefWidth = 120
+              },
+              new TableColumn[PoliticianRow, String] {
+                text = "Score"
+                cellValueFactory = { _.value.score }
+                prefWidth = 80
+              }
+            )
+          }
+        }
+      }
   }
 
 }
