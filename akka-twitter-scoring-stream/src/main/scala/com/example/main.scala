@@ -68,12 +68,16 @@ class Politician( secrets_       : TwitterSecrets
   private val key = new PoliticianKey(name, party, state)
   private val (consumerToken, accessToken) = secrets_.getTokens()
 
-  // Initial connection to Twitter to query the politician's user data
+  // Initial connection to Twitter to query the politician's Twitter user data
   private val restClient = new TwitterRestClient(consumerToken, accessToken)
-  private val userData = Await.result(restClient.user(screen_name = twitter), Duration.Inf).data
-  private val userID = userData.id
+  private val userData   = Await.result(restClient.user(screen_name = twitter), Duration.Inf).data
   restClient.shutdown()
-  print(userID)
+
+  // Unique numeric ID for the politician's Twitter account
+  private val userID     = userData.id
+
+  // The earliest time we can query tweets for this politician
+  private val userEpoch  = List(userData.created_at, term_start).max
 
   // Set up a stream of live tweets from the politician
   private val streamingClient = TwitterStreamingClient(consumerToken, accessToken)
