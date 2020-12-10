@@ -17,7 +17,8 @@ import scalafx.scene.control.{TableCell, TableColumn, TableView}
 import com.danielasfregola.twitter4s.entities._
 import com.danielasfregola.twitter4s.TwitterRestClient
 import com.danielasfregola.twitter4s.TwitterStreamingClient
-
+import com.danielasfregola.twitter4s.entities.{AccessToken, ConsumerToken, Tweet}
+import com.danielasfregola.twitter4s.entities.streaming.StreamingMessage
 
 // A unique key for identifying politicians.
 class PoliticianKey(val name : String, val party : String, val state : String) {}
@@ -275,13 +276,23 @@ object Main extends JFXApp {
   // Add all senators as actors to our system
   stream foreach addPolitician(system)(critic)
 
- /*
-    Import works ok, uncommenting it will error as we need to provide
-    the necessary env props (Twitter API keys) for it to load properly.
-    Will look into this as part of my next task to integrate with Twitter API. -Ye
-  */
+  // Twitter4s Streaming Init
+  val consumerToken = ConsumerToken(
+    key = "<API KEY>",
+    secret = "<API_SECRET>"
+  )
+  val accessToken = AccessToken(
+    key = "<ACCESS_KEY>",
+    secret = "<ACCESS_SECRET>"
+  )
   // val restClient = TwitterRestClient()
-  // val streamingClient = TwitterStreamingClient()
+  val streamingClient = TwitterStreamingClient(consumerToken, accessToken)
+  def printTweetText: PartialFunction[StreamingMessage, Unit] = {
+    case tweet: Tweet => println(tweet.text)
+  }
+
+  streamingClient.sampleStatuses(stall_warnings = true)(printTweetText)
+
 
   def addPolitician(system : ActorSystem)(updater : ActorRef )(dataRow : Seq[String]) : Unit = {
     // Convert Seq to Vector for more efficient random access
