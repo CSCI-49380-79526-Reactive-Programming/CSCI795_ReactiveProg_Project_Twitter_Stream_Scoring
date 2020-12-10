@@ -104,7 +104,7 @@ class Critic(rows_ : ObservableBuffer[PoliticianRow]) extends Actor {
            // Politician is new
            // New to add them to the scoring and the GUI
            scoring.addOne(politician, new TwitterScoring(tweet))
-           val score = scoring(politician).pinochiccoScore
+           val score = scoring(politician).pinocchioScore
            rows.append(new PoliticianRow(politician, score))
        }
   }
@@ -139,7 +139,7 @@ class TwitterScoring(tweet_ : Tweet) {
         // However it's status has changed to undisputed
         disputed.remove(id)
         undisputed.add(id)
-        return Some(pinochiccoScore)
+        return Some(pinocchioScore)
        }
        // And no change is required
     }
@@ -149,7 +149,7 @@ class TwitterScoring(tweet_ : Tweet) {
         // However it's status has changed to disputed
         disputed.add(id)
         undisputed.remove(id)
-        return Some(pinochiccoScore)
+        return Some(pinocchioScore)
       }
       // And no change is required
     }
@@ -161,12 +161,12 @@ class TwitterScoring(tweet_ : Tweet) {
       else {
         undisputed.add(id)
       }
-      return Some(pinochiccoScore)
+      return Some(pinocchioScore)
     }
     return None
   }
   
-  def pinochiccoScore() : Double = {
+  def pinocchioScore() : Double = {
     disputed.size / (disputed.size + undisputed.size)
   }
 
@@ -191,7 +191,7 @@ object Main extends JFXApp {
   stage = constructGUI(rows)
 
   // Set up the actor system and core actors
-  val system = ActorSystem("DemoSystem")
+  val system = ActorSystem("pinocchioScoring")
   val critic = system.actorOf(Props(new Critic(rows)), name = "critic")
 
   // Get the Twitter authentication secrets
@@ -231,7 +231,7 @@ object Main extends JFXApp {
 
   def constructGUI(rows : ObservableBuffer[PoliticianRow]) : PrimaryStage = {
     new PrimaryStage {
-        title.value = "CSCI-795 — Politician Pinochicco Presentation"
+        title.value = "CSCI-795 — Politician Pinocchio Presentation"
         scene = new Scene {
           content = new TableView[PoliticianRow](rows) {
             columns ++= List(
