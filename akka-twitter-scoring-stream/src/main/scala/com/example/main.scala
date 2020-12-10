@@ -335,7 +335,16 @@ object Main extends JFXApp {
   // TODO: Add all the rest of the politician ID once we are able to consolidate all the politician ids.
   val MY_TWITTER_ID = 1207501491877138433L
 
-  streamingClient.filterStatuses(stall_warnings = true, follow = Seq(MY_TWITTER_ID))(printFilteredStatusTweet)
+  // streamingClient.filterStatuses(stall_warnings = true, follow = Seq(MY_TWITTER_ID))(printFilteredStatusTweet)
+
+  // REST client to fetch all historical data for each user_id.
+  val restClient = new TwitterRestClient(consumerToken, accessToken)
+  val userTweets   = Await.result(restClient.userTimelineForUserId(user_id = MY_TWITTER_ID), Duration.Inf).data
+
+  for (t <- userTweets) {
+    println(t.text) // Prints out all of my previous tweets.
+  }
+  restClient.shutdown()
 
 
   def addPolitician(system : ActorSystem)(updater : ActorRef )(dataRow : Seq[String]) : Unit = {
