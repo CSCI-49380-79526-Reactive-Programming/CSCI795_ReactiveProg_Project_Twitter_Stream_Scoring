@@ -25,7 +25,7 @@ class PoliticianKey(val name : String, val party : String, val state : String) {
 // A row for a politician in the GUI.
 // NOTE: Is equatable with PoliticianKey (for convience).
 class PoliticianRow(key_ : PoliticianKey, score_ : Double) {
-  val key   = key_
+  private val key   = key_
   val name  = new ReadOnlyStringWrapper(this, "name" , key_.name )
   val party = new ReadOnlyStringWrapper(this, "party", key_.party)
   val state = new ReadOnlyStringWrapper(this, "state", key_.state)
@@ -57,7 +57,7 @@ class Politician( val updater    : ActorRef
                 , val term_end   : Instant
                 ) extends Actor {
 
-  val key = new PoliticianKey(name, party, state)
+  private val key = new PoliticianKey(name, party, state)
 
   // The following lines exist only to test the functionality of the Critic actor.
   // It has the nice side effect of populating the GUI until we get real Twitter integration.
@@ -82,8 +82,8 @@ class Politician( val updater    : ActorRef
 // Listens for updates from the Politician actors for new Tweets to be processed.
 class Critic(rows_ : ObservableBuffer[PoliticianRow]) extends Actor {
 
-  val scoring = new scala.collection.mutable.HashMap[PoliticianKey, TwitterScoring]
-  var rows    = rows_
+  private val scoring = new scala.collection.mutable.HashMap[PoliticianKey, TwitterScoring]
+  private var rows    = rows_
 
   def receive = {
     case (politician: PoliticianKey, tweet: Tweet) =>
@@ -117,8 +117,8 @@ class Critic(rows_ : ObservableBuffer[PoliticianRow]) extends Actor {
 // Can provide a "Pinochiocco Score" based on the current internal state.
 class TwitterScoring(tweet_ : Tweet) {
   // Two sets of tweet IDs
-  val disputed   = new scala.collection.mutable.HashSet[Long]
-  val undisputed = new scala.collection.mutable.HashSet[Long]
+  private val disputed   = new scala.collection.mutable.HashSet[Long]
+  private val undisputed = new scala.collection.mutable.HashSet[Long]
 
   if (flagged(tweet_)) {
     disputed.add(tweet_.id)
@@ -173,6 +173,15 @@ class TwitterScoring(tweet_ : Tweet) {
 }
 
 
+class TwitterSecrets(filePath_ : String) {
+  private val csvData   = CSVReader.open(new File(filePath_)).all()
+  val consumerKey       = csvData(1)(0)
+  val consumerSecret    = csvData(1)(1)
+  val accessToken       = csvData(1)(2)
+  val accessTokenSecret = csvData(1)(3)
+}
+
+
 object Main extends JFXApp {
   // Create an empty buffer of rows for politicians
   // We will fill this dynamically layer
@@ -212,6 +221,10 @@ object Main extends JFXApp {
   // Set up the actor system and core actors
   val system = ActorSystem("DemoSystem")
   val critic = system.actorOf(Props(new Critic(rows)), name = "critic")
+
+  // Get the Twitter authentication secrets
+  val secretsFile = "secrets.csv"
+  val secrets = new TwitterSecrets(secretsFile)
 
   // Get the politician input data
   val senatorsFile = "us-senate.csv" 
