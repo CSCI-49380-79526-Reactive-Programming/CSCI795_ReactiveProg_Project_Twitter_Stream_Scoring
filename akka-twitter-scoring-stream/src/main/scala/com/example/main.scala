@@ -3,6 +3,7 @@ import akka.actor.{Actor, ActorRef, Props, ActorSystem}
 import com.github.tototoshi.csv._
 import java.io.File
 import java.time._
+import scala.collection.immutable.Map
 
 // ScalaFX GUI
 import scalafx.application.{Platform, JFXApp}
@@ -24,13 +25,13 @@ class PoliticianKey(val name : String, val party : String, val state : String) {
 
 // A row for a politician in the GUI.
 // NOTE: Is equatable with PoliticianKey (for convience).
-class PoliticianRow(key_ : PoliticianKey, pinocchio_ : Double, positivity_ : Double) {
+class PoliticianRow(key_ : PoliticianKey, positivity_ : Double, pinocchio_ : Double) {
   private val key   = key_
   val name       = new ReadOnlyStringWrapper(this, "name"      , key_.name )
   val party      = new ReadOnlyStringWrapper(this, "party"     , key_.party)
   val state      = new ReadOnlyStringWrapper(this, "state"     , key_.state)
-  val pinocchio  = new StringProperty(       this, "pinocchio" , pinocchio_.toString)
   val positivity = new StringProperty(       this, "positivity", positivity_.toString)
+  val pinocchio  = new StringProperty(       this, "pinocchio" , pinocchio_.toString)
 
   def canEqual(a: Any) = a.isInstanceOf[PoliticianRow]
 
@@ -62,7 +63,7 @@ class Politician( val updater    : ActorRef
 
   // The following lines exist only to test the functionality of the Critic actor.
   // It has the nice side effect of populating the GUI until we get real Twitter integration.
-  val testTweet = new Tweet(created_at=Instant.now(),id=5,id_str="5", source="", text="Hello World")
+  val testTweet = new Tweet(created_at=Instant.now(),id=5,id_str="5", source="", text="We love scala! All aboard the scala train!")
   updater ! (key,testTweet)
 
   // TODO:
@@ -81,10 +82,11 @@ class Politician( val updater    : ActorRef
 
 // Actor who maintains the scoring of all politicians and updates the GUI.
 // Listens for updates from the Politician actors for new Tweets to be processed.
-class Critic(rows_ : ObservableBuffer[PoliticianRow]) extends Actor {
+class Critic(wordRanking_ : Map[String,Int], rows_ : ObservableBuffer[PoliticianRow]) extends Actor {
 
-  private val scoring = new scala.collection.mutable.HashMap[PoliticianKey, TwitterScoring]
-  private var rows    = rows_
+  private val scoring   = new scala.collection.mutable.HashMap[PoliticianKey, TwitterScoring]
+  private var rows      = rows_
+  private var wordRanks = wordRanking_
 
   def receive = {
     case (politician: PoliticianKey, tweet: Tweet) =>
@@ -93,20 +95,32 @@ class Critic(rows_ : ObservableBuffer[PoliticianRow]) extends Actor {
            // We already have a score for this politician
            // We update the state
            twitterScore.update(tweet) match {
-             case Some(v) =>
-               // The score was updated,
+             case (Some(x), Some(y)) =>
+               // Both scores were updated,
                // We need to update the GUI
                val i = rows.indexOf(politician)
-               rows(i).pinocchio.value = v.toString
-             case None => () // Nothing to update
+               rows(i).positivity.value = x.toString
+               rows(i).pinocchio.value  = y.toString
+             case (Some(x), None) =>
+               // A score was updated,
+               // We need to update the GUI
+               val i = rows.indexOf(politician)
+               rows(i).positivity.value = x.toString
+             case (None, Some(y)) =>
+               // A score was updated,
+               // We need to update the GUI
+               val i = rows.indexOf(politician)
+               rows(i).pinocchio.value  = y.toString
+             case (None, None) => () // Nothing to update
            }
          
          case None =>
            // Politician is new
            // New to add them to the scoring and the GUI
-           scoring.addOne(politician, new TwitterScoring(tweet))
-           val score = scoring(politician).pinocchioScore
-           rows.append(new PoliticianRow(politician, score, 0))
+           scoring.addOne(politician, new TwitterScoring(wordRanks, tweet))
+           val positivity = scoring(politician).positivityScore
+           val pinocchio  = scoring(politician).pinocchioScore
+           rows.append(new PoliticianRow(politician, positivity, pinocchio))
        }
   }
 }
@@ -116,24 +130,32 @@ class Critic(rows_ : ObservableBuffer[PoliticianRow]) extends Actor {
 // Intended to be associated with a politician.
 // Internally keeps a mutable state of Tweets received as either disputed or undisputed.
 // Can provide a "Pinochiocco Score" based on the current internal state.
-class TwitterScoring(tweet_ : Tweet) {
-  // Two sets of tweet IDs
+class TwitterScoring(wordRanking_ : Map[String,Int], tweet_ : Tweet) {
+  // Two sets of tweet IDs for Pinocchio score
   private val disputed   = new scala.collection.mutable.HashSet[Long]
   private val undisputed = new scala.collection.mutable.HashSet[Long]
 
-  if (flagged(tweet_)) {
-    disputed.add(tweet_.id)
-  }
-  else {
-    undisputed.add(tweet_.id)
-  }
+  // Two sets of tweet IDs for Positivity score
+  private val wordRanks  = wordRanking_
+  private val positive   = new scala.collection.mutable.HashSet[Long]
+  private val negative   = new scala.collection.mutable.HashSet[Long]
+  private val neutral    = new scala.collection.mutable.HashSet[Long]
+
+  updatePositivityScore(tweet_)
+  updatePinocchioScore(tweet_)
 
   def flagged(tweet : Tweet) : Boolean = {
     !tweet.withheld_in_countries.isEmpty
   }
 
-  def update(tweet : Tweet) : Option[Double] = {
-    val id      = tweet.id
+  def update(tweet : Tweet) : (Option[Double], Option[Double]) = {
+    val x = updatePositivityScore(tweet)
+    val y = updatePinocchioScore(tweet)
+    (x, y)
+  }
+
+  def updatePinocchioScore(tweet : Tweet) : Option[Double] = {
+    val id = tweet.id
     if (disputed contains id) {
       // We already processed this tweet as disputed
       if (!flagged(tweet)) {
@@ -164,11 +186,53 @@ class TwitterScoring(tweet_ : Tweet) {
       }
       return Some(pinocchioScore)
     }
-    return None
+    None
   }
-  
+
+  def updatePositivityScore(tweet : Tweet) : Option[Double] = {
+    val id = tweet.id
+
+    if ((positive contains id) || (neutral contains id) || (negative contains id)) {
+      // We already processed this tweet
+      return None
+    }
+
+    // Otherwise analyse and process the tweet
+    val score = analyzeText(tweet.text)
+    if (score == 0) {
+      neutral.add(id)
+    }
+    else if (score > 0) {
+      positive.add(id)
+    }
+    else {
+      negative.add(id)
+    }
+    Some(positivityScore)
+  }
+
   def pinocchioScore() : Double = {
     disputed.size / (disputed.size + undisputed.size)
+  }
+  
+  def positivityScore() : Double = {
+    (positive.size - negative.size) / (positive.size + neutral.size + negative.size)
+  }
+
+  def analyzeText(text : String) : Int = {
+    // Get rid of punctuation
+    // Make every character lower-case
+    // Split on whitespace
+    val cleanedStream = text.replaceAll("""[\p{Punct}&&[^.]]""", "")
+                            .toLowerCase()
+                            .split("\\ +")
+
+    cleanedStream.foldLeft(0) { (x : Int, word : String) =>
+      wordRanks.get(word) match {
+        case Some(v) => x + v
+        case None    => x
+      }
+    }
   }
 
 }
@@ -191,16 +255,20 @@ object Main extends JFXApp {
   // Construct the GUI
   stage = constructGUI(rows)
 
+  // Get word rankings
+  val wordsFile = "AFINN-111.csv"
+  val wordRanks = gatherWordPositivity(wordsFile)
+
   // Set up the actor system and core actors
   val system = ActorSystem("pinocchioScoring")
-  val critic = system.actorOf(Props(new Critic(rows)), name = "critic")
+  val critic = system.actorOf(Props(new Critic(wordRanks, rows)), name = "critic")
 
   // Get the Twitter authentication secrets
   val secretsFile = "secrets.csv"
   val secrets = new TwitterSecrets(secretsFile)
 
   // Get the politician input data
-  val senatorsFile = "us-senate.csv" 
+  val senatorsFile = "us-senate.csv"
   val stream  = CSVReader.open(new File(senatorsFile)).iterator
   stream.next // Drop the header row from the stream iterator
   
@@ -265,6 +333,15 @@ object Main extends JFXApp {
           }
         }
       }
+  }
+
+  def gatherWordPositivity(filePath : String) : Map[String,Int] = {
+    val stream  = CSVReader.open(new File(filePath)).iterator
+    val mapping = new scala.collection.immutable.HashMap[String,Int]()
+    stream.foldLeft(mapping){ (m, row) =>
+      m.updated(row(0), row(1).toInt)
+    }
+
   }
 
 }
