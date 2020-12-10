@@ -24,12 +24,13 @@ class PoliticianKey(val name : String, val party : String, val state : String) {
 
 // A row for a politician in the GUI.
 // NOTE: Is equatable with PoliticianKey (for convience).
-class PoliticianRow(key_ : PoliticianKey, score_ : Double) {
+class PoliticianRow(key_ : PoliticianKey, pinocchio_ : Double, positivity_ : Double) {
   private val key   = key_
-  val name  = new ReadOnlyStringWrapper(this, "name" , key_.name )
-  val party = new ReadOnlyStringWrapper(this, "party", key_.party)
-  val state = new ReadOnlyStringWrapper(this, "state", key_.state)
-  val score = new StringProperty(       this, "score", score_.toString)
+  val name       = new ReadOnlyStringWrapper(this, "name"      , key_.name )
+  val party      = new ReadOnlyStringWrapper(this, "party"     , key_.party)
+  val state      = new ReadOnlyStringWrapper(this, "state"     , key_.state)
+  val pinocchio  = new StringProperty(       this, "pinocchio" , pinocchio_.toString)
+  val positivity = new StringProperty(       this, "positivity", positivity_.toString)
 
   def canEqual(a: Any) = a.isInstanceOf[PoliticianRow]
 
@@ -96,7 +97,7 @@ class Critic(rows_ : ObservableBuffer[PoliticianRow]) extends Actor {
                // The score was updated,
                // We need to update the GUI
                val i = rows.indexOf(politician)
-               rows(i).score.value = v.toString
+               rows(i).pinocchio.value = v.toString
              case None => () // Nothing to update
            }
          
@@ -105,7 +106,7 @@ class Critic(rows_ : ObservableBuffer[PoliticianRow]) extends Actor {
            // New to add them to the scoring and the GUI
            scoring.addOne(politician, new TwitterScoring(tweet))
            val score = scoring(politician).pinocchioScore
-           rows.append(new PoliticianRow(politician, score))
+           rows.append(new PoliticianRow(politician, score, 0))
        }
   }
 }
@@ -251,8 +252,13 @@ object Main extends JFXApp {
                 prefWidth = 120
               },
               new TableColumn[PoliticianRow, String] {
-                text = "Score"
-                cellValueFactory = { _.value.score }
+                text = "Positivity"
+                cellValueFactory = { _.value.positivity }
+                prefWidth = 80
+              },
+              new TableColumn[PoliticianRow, String] {
+                text = "Pinocchio"
+                cellValueFactory = { _.value.pinocchio }
                 prefWidth = 80
               }
             )
