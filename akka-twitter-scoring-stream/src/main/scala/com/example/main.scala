@@ -3,6 +3,7 @@ import akka.actor.{Actor, ActorRef, Props, ActorSystem}
 import com.github.tototoshi.csv._
 import java.io.File
 import java.time.Instant
+import java.time.temporal.ChronoUnit
 import scala.collection.immutable.Map
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -77,7 +78,7 @@ class Politician( secrets_       : TwitterSecrets
   private val userID     = userData.id
 
   // The earliest time we can query tweets for this politician
-  private val userEpoch  = List(userData.created_at, term_start).max
+  private val userEpoch  = List(userData.created_at, term_start, Instant.now().minus(7, ChronoUnit.DAYS)).max
 
   // Set up a stream of live tweets from the politician
   private val streamingClient = TwitterStreamingClient(consumerToken, accessToken)
