@@ -109,6 +109,24 @@ class Politician( secrets_       : TwitterSecrets
 }
 
 
+class Collator (updater_ : ActorRef) extends Actor {
+  private val collation = new scala.collection.mutable.HashMap[Long, PoliticianKey]
+
+  def receive = {
+    case () => sender ! collation.keySet
+
+    case (id: Long, politician : PoliticianKey) =>
+      collation.addOne(id, politician)
+      
+    case (id: Long, tweet: Tweet) =>
+      collation.get(id) match {
+        case Some(politician) => updater_ ! (politician, tweet)
+        case None => 
+      }
+  }
+}
+
+
 // Actor who maintains the scoring of all politicians and updates the GUI.
 // Listens for updates from the Politician actors for new Tweets to be processed.
 class Critic(wordRanking_ : Map[String,Int], rows_ : ObservableBuffer[PoliticianRow]) extends Actor {
