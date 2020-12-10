@@ -82,7 +82,7 @@ class Politician( secrets_       : TwitterSecrets
 
   // Set up a stream of live tweets from the politician
   private val streamingClient = TwitterStreamingClient(consumerToken, accessToken)
-  streamingClient.siteEvents(follow = Seq(userID), stall_warnings = true)(forwardTweetText)
+  streamingClient.filterStatuses(follow = Seq(userID), stall_warnings = true)(forwardTweetText)
 
   // The following lines exist only to test the functionality of the Critic actor.
   // It has the nice side effect of populating the GUI until we get real Twitter integration.
@@ -91,14 +91,14 @@ class Politician( secrets_       : TwitterSecrets
 
   // TODO:
   //   - Connect to Twitter
-  //   - Set up real time stream
-  //   - Get Twitter profile information
+  //   - Set up real time stream - Done on the filterStatuses(...) call above
+  //   - Get Twitter profile information - Done on the rest call above
   //   - Calculate first Instant we can collect data from
   //   - HTTP query for historical data
 
   def forwardTweetText: PartialFunction[StreamingMessage, Unit] = {
     case tweet: Tweet =>
-      println(tweet.text)
+      println("Tweet Received: [@" + twitter + "] - " + tweet.text)
      updater ! (key,tweet)
   }
 
@@ -311,7 +311,7 @@ object Main extends JFXApp {
   val secrets = new TwitterSecrets(secretsFile)
 
   // Get the politician input data
-  val senatorsFile = "us-senate.csv"
+  val senatorsFile = "us-senate-test.csv"
   val stream  = CSVReader.open(new File(senatorsFile)).iterator
   stream.next // Drop the header row from the stream iterator
   
