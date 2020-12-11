@@ -18,7 +18,7 @@
 - Notes: Current API streaming service only supports limited # of connections over a time interval. If you run into any 400/500 errors regarding connection threshold, simply stop the program and try again after a few minutes.
 
 ### Milestones
-#### Ye:
+#### @y3pio (https://github.com/y3pio):
 - [X] Set up Akka dev environment and setup instructions
   - [X] Import this library: https://github.com/DanielaSfregola/twitter4s
 - [X] Connect to Twitter API
@@ -26,7 +26,7 @@
 - [X] Get Akka stream to process live Tweet updates
   - [X] Need a dummy account, use the DEV account for this?
 
-#### Alex:
+#### @recursion-ninja (https://github.com/recursion-ninja):
 - [X] Get historical tweets, not just processing live ones that come in.
 - [ ] ~~Figure out how to parse metadata of tweet both present/historical (flagged content - need to simulate this)~~
   - (This information is not available via the Twitter API)
