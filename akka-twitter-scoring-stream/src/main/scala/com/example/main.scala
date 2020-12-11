@@ -11,21 +11,12 @@ import scalafx.collections.ObservableBuffer
 import scalafx.scene.Scene
 import scalafx.scene.control.{TableColumn, TableView}
 
-// Twitter4s streaming library
-import com.danielasfregola.twitter4s.http.clients.rest.users._
-import com.danielasfregola.twitter4s.http.clients.streaming.TwitterStream
-import com.danielasfregola.twitter4s.TwitterRestClient
-import com.danielasfregola.twitter4s.TwitterStreamingClient
-import com.danielasfregola.twitter4s.entities.{AccessToken, ConsumerToken, Tweet}
-import com.danielasfregola.twitter4s.entities.streaming.StreamingMessage
-import scala.concurrent.Await
-import scala.concurrent.duration._
-
 // Our own classes
-import artist.{Artist}
+import artist.Artist
 import politician.{Politician, PoliticianKey, PoliticianRow}
-import scorer.{Critic}
-import tweet.{TwitterScoring, TwitterSecrets}
+import scorer.Critic
+import sentinel.Sentinel
+import tweet.TwitterSecrets
 
 object Main extends JFXApp {
   // Create an empty buffer of rows for politicians
@@ -49,62 +40,14 @@ object Main extends JFXApp {
   val secrets = new TwitterSecrets(secretsFile)
 
   // Get the politician input data
-  val senatorsFile = "us-senate-test.csv"
+  val senatorsFile = "us-senate.csv"
   val stream  = CSVReader.open(new File(senatorsFile)).iterator
   stream.next // Drop the header row from the stream iterator
 
   // Add politician actors to system and collect their keys
   val politiciansToStream = stream.map(addPolitician(system)(critic))
 
-  // Connect to stream once we have all the twitter handlers to follow
-  connectToPoliticianTwitterStreams(politiciansToStream)(critic)
-
-  /*
-    connectToPoliticianTwitterStreams
-
-    Fetches IDs for all twitter handles to follow
-    Starts a single streaming connection that,
-    listens for and updates for all the IDs being followed
-  */
-  def connectToPoliticianTwitterStreams(politiciansToStream: Iterator[PoliticianKey])(updater: ActorRef) = {
-    val (consumerToken, accessToken) = secrets.getTokens()
-    val restClient      = TwitterRestClient(consumerToken, accessToken)
-    val streamingClient = TwitterStreamingClient(consumerToken, accessToken)
-
-    var twitterIDsToStream: Seq[Long] = Seq()
-    politiciansToStream.foreach((p: PoliticianKey) => {
-      // println("Connecting to live twitter stream: @" + p.twitter_handle)
-      val userData = Await.result(restClient.user(screen_name = p.twitter_handle), Duration.Inf).data
-      println("Connecting to live twitter stream: @" + p.twitter_handle + " - ID: " + userData.id)
-      twitterIDsToStream = twitterIDsToStream :+ userData.id
-    })
-
-    restClient.shutdown()
-
-    // Function to process incoming tweet stream
-    def printFilteredStatusTweet: PartialFunction[StreamingMessage, Unit] = {
-      case tweet: Tweet => {
-        val receiveTweetUserId = tweet.user.get.id
-        val receiveTweetUserScreenName = tweet.user.get.screen_name
-        println("@" + receiveTweetUserScreenName + " (" + receiveTweetUserId + ") : " + tweet.text)
-
-        // Only send/update if the ID was part of the senator IDs we are tracking.
-        // This prevents mentions/retweets from triggering score updates.
-        if (twitterIDsToStream.contains(receiveTweetUserId)) {
-          println("\n[UPDATING SCORE] @" + receiveTweetUserScreenName + " (" + receiveTweetUserId + ") : " + tweet.text + "\n")
-
-          // Send below tweet to critic
-          val newTweet = new Tweet(created_at=Instant.now(),id=tweet.id, id_str=tweet.id_str, source="", text=tweet.text)
-          
-          // We don't really care about the other key fields (used for display) to update.
-          val key = new PoliticianKey("_", "_", "_", receiveTweetUserScreenName)
-          updater ! (key, newTweet)
-        }
-      }
-    }
-    // Start streaming for incoming tweets.
-    streamingClient.filterStatuses(stall_warnings = true, follow = twitterIDsToStream)(printFilteredStatusTweet)
-  }
+  system.actorOf(Props(new Sentinel(secrets, critic, politiciansToStream)))
 
   /*
     addPolitician
