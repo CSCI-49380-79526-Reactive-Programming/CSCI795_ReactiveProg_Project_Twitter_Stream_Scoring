@@ -16,7 +16,7 @@ import scalafx.beans.property.{ReadOnlyStringWrapper, StringProperty}
 import tweet.TwitterSecrets
 
 // Unique Politician key to identify politician within our system/UI/stream etc...
-class PoliticianKey(val name : String, val party : String, val state : String) {}
+class PoliticianKey(val name : String, val party : String, val state : String, val twitter_handle: String) {}
 
 class PoliticianUpdate(val key : PoliticianKey, val positivity : Option[Double], val pinocchio : Option[Double]) {}
 
@@ -24,12 +24,13 @@ class PoliticianUpdate(val key : PoliticianKey, val positivity : Option[Double],
 // A row for a politician in the GUI.
 // NOTE: Is equatable with PoliticianKey (for convience).
 class PoliticianRow(key_ : PoliticianKey, positivity_ : Double, pinocchio_ : Double) {
-  private val key   = key_
-  val name       = new ReadOnlyStringWrapper(this, "name"      , key_.name )
-  val party      = new ReadOnlyStringWrapper(this, "party"     , key_.party)
-  val state      = new ReadOnlyStringWrapper(this, "state"     , key_.state)
-  val positivity = new StringProperty(       this, "positivity", positivity_.toString)
-  val pinocchio  = new StringProperty(       this, "pinocchio" , pinocchio_.toString)
+  private val key     = key_
+  val name            = new ReadOnlyStringWrapper(this, "name"      , key_.name )
+  val twitter_handle  = new ReadOnlyStringWrapper(this, "twitter_handle"    , key_.twitter_handle)
+  val party           = new ReadOnlyStringWrapper(this, "party"     , key_.party)
+  val state           = new ReadOnlyStringWrapper(this, "state"     , key_.state)
+  val positivity      = new StringProperty(       this, "positivity", positivity_.toString)
+  val pinocchio       = new StringProperty(       this, "pinocchio" , pinocchio_.toString)
 
   def canEqual(a: Any) = a.isInstanceOf[PoliticianRow]
 
@@ -47,37 +48,39 @@ class PoliticianRow(key_ : PoliticianKey, positivity_ : Double, pinocchio_ : Dou
 }
 
 // Politician Actor which listens to the Twitter stream of the associated politician.
-class Politician( secrets_       : TwitterSecrets
-                , val updater    : ActorRef
-                , val name       : String
-                , val party      : String
-                , val state      : String
-                , val twitter    : String
-                , val term_start : Instant
-                , val term_end   : Instant
+class Politician( secrets_            : TwitterSecrets
+                , val updater         : ActorRef
+                , val name            : String
+                , val party           : String
+                , val state           : String
+                , val twitter_handle  : String
+                , val term_start      : Instant
+                , val term_end        : Instant
                 ) extends Actor {
 
-  private val key = new PoliticianKey(name, party, state)
+  private val key = new PoliticianKey(name, party, state, twitter_handle)
   private val (consumerToken, accessToken) = secrets_.getTokens()
 
   // Initial connection to Twitter to query the politician's Twitter user data
   private val restClient = new TwitterRestClient(consumerToken, accessToken)
-  private val userData   = Await.result(restClient.user(screen_name = twitter), Duration.Inf).data
+
+  // Fetch historical tweets by handle
+  println("Fetching Historical Tweets: " + name + " - @" + twitter_handle)
+  private val historicalTweets = Await.result(restClient.userTimelineForUser(screen_name = twitter_handle, count = 25), Duration.Inf).data
+
   restClient.shutdown()
-
-  // Unique numeric ID for the politician's Twitter account
-  private val userID     = userData.id
-
-  // The earliest time we can query tweets for this politician
-  private val userEpoch  = List(userData.created_at, term_start, Instant.now().minus(7, ChronoUnit.DAYS)).max
 
   // The following lines exist only to test the functionality of the Critic actor.
   // It has the nice side effect of populating the GUI until we get real Twitter integration.
-  val testTweet = new Tweet(created_at=Instant.now(),id=5,id_str="5", source="", text="We love scala! All aboard the scala train!")
-  updater ! (key,testTweet)
+  for (t <- historicalTweets) {
+      val tweet = new Tweet(created_at=Instant.now(),id=t.id,id_str=t.id_str, source="", text=t.text)
+      updater ! (key,tweet)
+  }
+
+  // val testTweet = new Tweet(created_at=Instant.now(),id=5,id_str="5", source="", text="We love scala! All aboard the scala train!")
+
 
   def receive = {
     case path : String => 
   }
-
 }

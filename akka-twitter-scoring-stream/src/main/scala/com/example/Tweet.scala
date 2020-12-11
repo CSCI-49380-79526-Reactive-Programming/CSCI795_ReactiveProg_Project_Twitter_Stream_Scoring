@@ -113,11 +113,11 @@ class TwitterScoring(wordRanking_ : Map[String,Int], tweet_ : Tweet) {
   }
 
   def pinocchioScore() : Double = {
-    disputed.size / (disputed.size + undisputed.size)
+    disputed.size.toDouble / (disputed.size + undisputed.size).toDouble
   }
   
   def positivityScore() : Double = {
-    (positive.size - negative.size) / (positive.size + neutral.size + negative.size)
+    (positive.size - negative.size).toDouble / (positive.size + neutral.size + negative.size).toDouble
   }
 
   def analyzeText(text : String) : Int = {

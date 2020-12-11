@@ -18,6 +18,8 @@ import com.danielasfregola.twitter4s.TwitterRestClient
 import com.danielasfregola.twitter4s.TwitterStreamingClient
 import com.danielasfregola.twitter4s.entities.{AccessToken, ConsumerToken, Tweet}
 import com.danielasfregola.twitter4s.entities.streaming.StreamingMessage
+import scala.concurrent.Await
+import scala.concurrent.duration._
 
 // Our own classes
 import artist.{Artist}
@@ -51,37 +53,67 @@ object Main extends JFXApp {
   val stream  = CSVReader.open(new File(senatorsFile)).iterator
   stream.next // Drop the header row from the stream iterator
   
-  // Add all senators as actors to our system
-  stream foreach addPolitician(system)(critic)
+  // Add all senators as actors to our system and set up stream
+  var politiciansToStream: Seq[PoliticianKey] = Seq()
+  for(s <- stream) {
+    val vec = s.toVector
+    val name    = vec(15)
+    val party   = vec(14)
+    val state   = vec( 0)
+    val twitter = vec(48)
+    politiciansToStream = politiciansToStream :+ new PoliticianKey(name, party, state, twitter)
+    addPolitician(system)(critic)(s)
+  }
 
-  // val (consumerToken, accessToken) = secrets.getTokens()
-  // val streamingClient = TwitterStreamingClient(consumerToken, accessToken)
+  // Connect to stream once we have all the twitter handlers to follow
+  connectToPoliticianTwitterStreams(politiciansToStream)(critic)
 
-  // def printFilteredStatusTweet: PartialFunction[StreamingMessage, Unit] = {
-  //   case tweet: Tweet => {
-  //     val receiveTweetUserId = tweet.user.get.id
-  //     val receiveTweetUserScreenName = tweet.user.get.screen_name
-  //     println("\n@" + receiveTweetUserScreenName + " (" + receiveTweetUserId + ") : " + tweet.text + "\n")
-  //     // Broadcast to politician key generator here -> to borad cast to critic actor.
-  //     // Send twitter ID, and tweet text.
-  //   }
-  // }
+  /*
+    connectToPoliticianTwitterStreams
 
-  // TODO: Add all the rest of the politician ID once we are able to consolidate all the politician ids.
-  val MY_TWITTER_ID = 2891210047L
+    Fetches IDs for all twitter handles to follow
+    Starts a single streaming connection that,
+    listens for and updates for all the IDs being followed
+  */
+  def connectToPoliticianTwitterStreams(politiciansToStream: Seq[PoliticianKey])(updater: ActorRef) = {
+    val (consumerToken, accessToken) = secrets.getTokens()
+    val restClient      = TwitterRestClient(consumerToken, accessToken)
+    val streamingClient = TwitterStreamingClient(consumerToken, accessToken)
 
-  // streamingClient.filterStatuses(stall_warnings = true, follow = Seq(MY_TWITTER_ID))(printFilteredStatusTweet)
+    var twitterIDsToStream: Seq[Long] = Seq()
+    politiciansToStream.foreach((p: PoliticianKey) => {
+      // println("Connecting to live twitter stream: @" + p.twitter_handle)
+      val userData = Await.result(restClient.user(screen_name = p.twitter_handle), Duration.Inf).data
+      println("Connecting to live twitter stream: @" + p.twitter_handle + " - ID: " + userData.id)
+      twitterIDsToStream = twitterIDsToStream :+ userData.id
+    })
 
-  // REST client to fetch all historical data for each user_id.
-  // val restClient = new TwitterRestClient(consumerToken, accessToken)
-  // val userTweets   = Await.result(restClient.userTimelineForUserId(user_id = MY_TWITTER_ID, count = 20), Duration.Inf).data
+    restClient.shutdown()
 
-  // for (t <- userTweets) {
-  //   println(t.text) // Prints out all of my previous tweets.
-  // }
-  // restClient.shutdown()
+    // Function to process incoming tweet stream
+    def printFilteredStatusTweet: PartialFunction[StreamingMessage, Unit] = {
+      case tweet: Tweet => {
+        val receiveTweetUserId = tweet.user.get.id
+        val receiveTweetUserScreenName = tweet.user.get.screen_name
+        println("\n@" + receiveTweetUserScreenName + " (" + receiveTweetUserId + ") : " + tweet.text + "\n")
 
+        // Send below tweet to critic
+        val newTweet = new Tweet(created_at=Instant.now(),id=tweet.id, id_str=tweet.id_str, source="", text=tweet.text)
+        
+        // We don't really care about the other key fields (used for display) to update.
+        val key = new PoliticianKey("_", "_", "_", receiveTweetUserScreenName)
+        updater ! (key, newTweet)
+      }
+    }
+    // Start streaming for incoming tweets.
+    streamingClient.filterStatuses(stall_warnings = true, follow = twitterIDsToStream)(printFilteredStatusTweet)
+  }
 
+  /*
+    addPolitician
+
+    Adds a politician into our actor system to update our GUI and to fetch historical tweets
+  */
   def addPolitician(system : ActorSystem)(updater : ActorRef )(dataRow : Seq[String]) : Unit = {
     // Convert Seq to Vector for more efficient random access
     val vec     = dataRow.toVector
@@ -140,7 +172,6 @@ object Main extends JFXApp {
     stream.foldLeft(mapping){ (m, row) =>
       m.updated(row(0), row(1).toInt)
     }
-
   }
 
 }
