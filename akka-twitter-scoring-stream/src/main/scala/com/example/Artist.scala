@@ -44,7 +44,17 @@ class Artist(rows_ : ObservableBuffer[PoliticianRow]) extends Actor {
 
   def renderScore(score : Double) : String = {
     val percent = score * 100
-    f"$percent%1.3f" + "%"
+    val x = percent.abs
+    var prefix = ""
+
+    if ( percent > 0)
+      prefix += " "
+    if (x < 100)
+      prefix += " "
+    if (x < 10)
+      prefix += " "
+
+    prefix + f"$percent%1.3f" + "%"
   }
 
 }

@@ -159,12 +159,12 @@ object Main extends JFXApp {
               new TableColumn[PoliticianRow, String] {
                 text = "Positivity"
                 cellValueFactory = { _.value.positivity }
-                prefWidth = 80
+                prefWidth = 90
               },
               new TableColumn[PoliticianRow, String] {
                 text = "Pinocchio"
                 cellValueFactory = { _.value.pinocchio }
-                prefWidth = 80
+                prefWidth = 90
               }
             )
           }

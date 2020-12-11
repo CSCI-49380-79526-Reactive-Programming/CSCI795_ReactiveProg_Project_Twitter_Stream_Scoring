@@ -129,10 +129,7 @@ class TwitterScoring(wordRanking_ : Map[String,Int], tweet_ : Tweet) {
                             .split("\\ +")
 
     cleanedStream.foldLeft(0) { (x : Int, word : String) =>
-      wordRanks.get(word) match {
-        case Some(v) => x + v
-        case None    => x
-      }
+      x + wordRanks.get(word).getOrElse(0)
     }
   }
 
