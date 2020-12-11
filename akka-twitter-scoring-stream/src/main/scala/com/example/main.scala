@@ -95,6 +95,9 @@ object Main extends JFXApp {
         val receiveTweetUserScreenName = tweet.user.get.screen_name
         println("\n@" + receiveTweetUserScreenName + " (" + receiveTweetUserId + ") : " + tweet.text + "\n")
 
+        if (twitterIDsToStream.contains(receiveTweetUserId)) {
+          
+        }
         // Send below tweet to critic
         val newTweet = new Tweet(created_at=Instant.now(),id=tweet.id, id_str=tweet.id_str, source="", text=tweet.text)
         
