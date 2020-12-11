@@ -13,7 +13,7 @@ Presentation for CSCI 795 Reactive Programming Course - Hunter College FA'20
   - [X] Import this library: https://github.com/DanielaSfregola/twitter4s
 - [X] Connect to Twitter API
   - [X] Need to create DEV account and sign up
-- [ ] Get Akka stream to process live Tweet updates
+- [X] Get Akka stream to process live Tweet updates
   - [X] Need a dummy account, use the DEV account for this?
 
 ### Alex:
