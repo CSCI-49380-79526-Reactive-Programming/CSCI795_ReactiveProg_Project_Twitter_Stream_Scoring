@@ -43,19 +43,19 @@ class Critic(wordRanking_ : Map[String,Int], rows_ : ObservableBuffer[Politician
              case (Some(x), Some(y)) =>
                // Both scores were updated,
                // We need to update the GUI
-               val i = rows.indexOf(politician)
-               rows(i).positivity.value = x.toString
-               rows(i).pinocchio.value  = y.toString
+               val row = getRow(politician)
+               row.positivity.value = x.toString
+               row.pinocchio.value  = y.toString
              case (Some(x), None) =>
                // A score was updated,
                // We need to update the GUI
-               val i = rows.indexOf(politician)
-               rows(i).positivity.value = x.toString
+               val row = getRow(politician)
+               row.positivity.value = x.toString
              case (None, Some(y)) =>
                // A score was updated,
                // We need to update the GUI
-               val i = rows.indexOf(politician)
-               rows(i).pinocchio.value  = y.toString
+               val row = getRow(politician)
+               row.pinocchio.value  = y.toString
              case (None, None) => () // Nothing to update
            }
          
@@ -68,4 +68,9 @@ class Critic(wordRanking_ : Map[String,Int], rows_ : ObservableBuffer[Politician
            rows.append(new PoliticianRow(politician, positivity, pinocchio))
        }
   }
+
+  def getRow(politician : PoliticianKey) : PoliticianRow = {
+    for((x,i) <- rows.view.zipWithIndex) (x => if (x.equals(politician)) { return x })
+  }
+
 }
