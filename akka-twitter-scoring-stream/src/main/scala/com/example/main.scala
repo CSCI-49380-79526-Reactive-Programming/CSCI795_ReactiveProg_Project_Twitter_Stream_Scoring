@@ -52,18 +52,9 @@ object Main extends JFXApp {
   val senatorsFile = "us-senate-test.csv"
   val stream  = CSVReader.open(new File(senatorsFile)).iterator
   stream.next // Drop the header row from the stream iterator
-  
-  // Add all senators as actors to our system and set up stream
-  var politiciansToStream: Seq[PoliticianKey] = Seq()
-  for(s <- stream) {
-    val vec = s.toVector
-    val name    = vec(15)
-    val party   = vec(14)
-    val state   = vec( 0)
-    val twitter = vec(48)
-    politiciansToStream = politiciansToStream :+ new PoliticianKey(name, party, state, twitter)
-    addPolitician(system)(critic)(s)
-  }
+
+  // Add politician actors to system and collect their keys
+  val politiciansToStream = stream.map(addPolitician(system)(critic))
 
   // Connect to stream once we have all the twitter handlers to follow
   connectToPoliticianTwitterStreams(politiciansToStream)(critic)
@@ -75,7 +66,7 @@ object Main extends JFXApp {
     Starts a single streaming connection that,
     listens for and updates for all the IDs being followed
   */
-  def connectToPoliticianTwitterStreams(politiciansToStream: Seq[PoliticianKey])(updater: ActorRef) = {
+  def connectToPoliticianTwitterStreams(politiciansToStream: Iterator[PoliticianKey])(updater: ActorRef) = {
     val (consumerToken, accessToken) = secrets.getTokens()
     val restClient      = TwitterRestClient(consumerToken, accessToken)
     val streamingClient = TwitterStreamingClient(consumerToken, accessToken)
@@ -119,20 +110,19 @@ object Main extends JFXApp {
     addPolitician
 
     Adds a politician into our actor system to update our GUI and to fetch historical tweets
+    Returns the politician's key
   */
-  def addPolitician(system : ActorSystem)(updater : ActorRef )(dataRow : Seq[String]) : Unit = {
-    // Convert Seq to Vector for more efficient random access
+  def addPolitician(system : ActorSystem)(updater : ActorRef)(dataRow : Seq[String]) : PoliticianKey = {
     val vec     = dataRow.toVector
-    // Extract relevent fields from the row
     val name    = vec(15)
-    val id      = vec(16)
     val party   = vec(14)
     val state   = vec( 0)
     val twitter = vec(48)
     val begin   = Instant.parse(vec(28) + "T00:00:00.00Z")
     val finish  = Instant.parse(vec(29) + "T00:00:00.00Z")
-    // Add a new Politician actor from the row data
-    system.actorOf(Props(new Politician(secrets, updater, name, party, state, twitter, begin, finish)), name = id)
+    val key     = new PoliticianKey(name, party, state, twitter)
+    system.actorOf(Props(new Politician(secrets, critic, key, begin, finish)))
+    key
   }
 
   def constructGUI(rows : ObservableBuffer[PoliticianRow]) : PrimaryStage = {

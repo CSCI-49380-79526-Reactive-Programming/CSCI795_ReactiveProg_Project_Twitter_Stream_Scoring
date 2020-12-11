@@ -36,15 +36,16 @@ class PoliticianRow(key_ : PoliticianKey, positivity_ : Double, pinocchio_ : Dou
 // Politician Actor which listens to the Twitter stream of the associated politician.
 class Politician( secrets_            : TwitterSecrets
                 , val updater         : ActorRef
-                , val name            : String
-                , val party           : String
-                , val state           : String
-                , val twitter_handle  : String
+                , key_                : PoliticianKey
                 , val term_start      : Instant
                 , val term_end        : Instant
                 ) extends Actor {
+  private val key    = key_
+  val name           = key_.name
+  val party          = key_.party
+  val state          = key_.state
+  val twitter_handle = key_.twitter_handle
 
-  private val key = new PoliticianKey(name, party, state, twitter_handle)
   private val (consumerToken, accessToken) = secrets_.getTokens()
 
   // Initial connection to Twitter to query the politician's Twitter user data
