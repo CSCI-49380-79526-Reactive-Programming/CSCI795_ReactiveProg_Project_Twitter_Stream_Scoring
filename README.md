@@ -1,6 +1,14 @@
 # CSCI795_ReactiveProg_Project
 ## Presentation for CSCI 795 Reactive Programming Course - Hunter College FA'20
 
+## Dev Setup
+### Pre-reqs
+1. Sign up for a Twitter Dev Account (Takes 2-3 days for approval)
+    1. This will give you the account level `<API_KEY>` and `<API_TOKEN>`
+2. Create an app in your dev portal/account.
+    1. Then generate an app level access token for the `<APP_ACCESS_TOKEN>` and `<APP_ACCESS_KEY>`
+3. In the provided `secrets.csv` file in the project folder, fill in the necessary tokens that you generate in the previous steps.
+
 ### Run Instructions
 1. Checkout this repo.
 2. `cd` into the root of this project
