@@ -70,7 +70,7 @@ object Main extends JFXApp {
 
   def constructGUI(rows : ObservableBuffer[PoliticianRow]) : PrimaryStage = {
     new PrimaryStage {
-        title.value = "CSCI-795 — Politician Pinocchio Presentation"
+        title.value = "CSCI-795 — Politician Positivity Presentation"
         scene = new Scene {
           content = new TableView[PoliticianRow](rows) {
             columns ++= List(
