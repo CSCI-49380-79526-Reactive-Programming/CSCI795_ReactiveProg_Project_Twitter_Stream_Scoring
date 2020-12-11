@@ -61,21 +61,28 @@ class Politician( secrets_       : TwitterSecrets
   // Initial connection to Twitter to query the politician's Twitter user data
   private val restClient = new TwitterRestClient(consumerToken, accessToken)
   private val userData   = Await.result(restClient.user(screen_name = twitter), Duration.Inf).data
-  restClient.shutdown()
 
   // Unique numeric ID for the politician's Twitter account
-  private val userID     = userData.id
+  private val userID = userData.id
+
+  private val historicalTweets = Await.result(restClient.userTimelineForUserId(user_id = userID, count = 25), Duration.Inf).data
+
+  restClient.shutdown()
 
   // The earliest time we can query tweets for this politician
   private val userEpoch  = List(userData.created_at, term_start, Instant.now().minus(7, ChronoUnit.DAYS)).max
 
   // The following lines exist only to test the functionality of the Critic actor.
   // It has the nice side effect of populating the GUI until we get real Twitter integration.
-  val testTweet = new Tweet(created_at=Instant.now(),id=5,id_str="5", source="", text="We love scala! All aboard the scala train!")
-  updater ! (key,testTweet)
+  for (t <- historicalTweets) {
+      val tweet = new Tweet(created_at=Instant.now(),id=t.id,id_str=t.id_str, source="", text=t.text)
+      updater ! (key,tweet)
+  }
+
+  // val testTweet = new Tweet(created_at=Instant.now(),id=5,id_str="5", source="", text="We love scala! All aboard the scala train!")
+
 
   def receive = {
     case path : String => 
   }
-
 }

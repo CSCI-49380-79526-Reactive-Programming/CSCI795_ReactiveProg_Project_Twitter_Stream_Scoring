@@ -18,6 +18,8 @@ import com.danielasfregola.twitter4s.TwitterRestClient
 import com.danielasfregola.twitter4s.TwitterStreamingClient
 import com.danielasfregola.twitter4s.entities.{AccessToken, ConsumerToken, Tweet}
 import com.danielasfregola.twitter4s.entities.streaming.StreamingMessage
+import scala.concurrent.Await
+import scala.concurrent.duration._
 
 // Our own classes
 import scorer.{Collator, Critic}
@@ -50,10 +52,15 @@ object Main extends JFXApp {
   stream.next // Drop the header row from the stream iterator
   
   // Add all senators as actors to our system
-  stream foreach addPolitician(system)(critic)
+  for (s <- stream) {
+    val politicianActorRef = addPolitician(system)(critic)(s)
+    println(politicianActorRef.toString())
+  }
 
-  // val (consumerToken, accessToken) = secrets.getTokens()
-  // val streamingClient = TwitterStreamingClient(consumerToken, accessToken)
+  // Pull from actor obj for pol id
+
+  val (consumerToken, accessToken) = secrets.getTokens()
+  val streamingClient = TwitterStreamingClient(consumerToken, accessToken)
 
   // def printFilteredStatusTweet: PartialFunction[StreamingMessage, Unit] = {
   //   case tweet: Tweet => {
@@ -66,13 +73,13 @@ object Main extends JFXApp {
   // }
 
   // TODO: Add all the rest of the politician ID once we are able to consolidate all the politician ids.
-  val MY_TWITTER_ID = 2891210047L
+  // val MY_TWITTER_ID = 1207501491877138433L
 
-  // streamingClient.filterStatuses(stall_warnings = true, follow = Seq(MY_TWITTER_ID))(printFilteredStatusTweet)
+  // // streamingClient.filterStatuses(stall_warnings = true, follow = Seq(MY_TWITTER_ID))(printFilteredStatusTweet)
 
-  // REST client to fetch all historical data for each user_id.
+  // // REST client to fetch all historical data for each user_id.
   // val restClient = new TwitterRestClient(consumerToken, accessToken)
-  // val userTweets   = Await.result(restClient.userTimelineForUserId(user_id = MY_TWITTER_ID, count = 20), Duration.Inf).data
+  // val userTweets   = Await.result(restClient.userTimelineForUserId(user_id = MY_TWITTER_ID, count = 25), Duration.Inf).data
 
   // for (t <- userTweets) {
   //   println(t.text) // Prints out all of my previous tweets.
@@ -80,7 +87,7 @@ object Main extends JFXApp {
   // restClient.shutdown()
 
 
-  def addPolitician(system : ActorSystem)(updater : ActorRef )(dataRow : Seq[String]) : Unit = {
+  def addPolitician(system : ActorSystem)(updater : ActorRef )(dataRow : Seq[String]) : ActorRef = {
     // Convert Seq to Vector for more efficient random access
     val vec     = dataRow.toVector
     // Extract relevent fields from the row
