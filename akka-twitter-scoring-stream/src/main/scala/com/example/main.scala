@@ -95,17 +95,20 @@ object Main extends JFXApp {
       case tweet: Tweet => {
         val receiveTweetUserId = tweet.user.get.id
         val receiveTweetUserScreenName = tweet.user.get.screen_name
-        println("\n@" + receiveTweetUserScreenName + " (" + receiveTweetUserId + ") : " + tweet.text + "\n")
+        println("@" + receiveTweetUserScreenName + " (" + receiveTweetUserId + ") : " + tweet.text)
 
+        // Only send/update if the ID was part of the senator IDs we are tracking.
+        // This prevents mentions/retweets from triggering score updates.
         if (twitterIDsToStream.contains(receiveTweetUserId)) {
+          println("\n[UPDATING SCORE] @" + receiveTweetUserScreenName + " (" + receiveTweetUserId + ") : " + tweet.text + "\n")
+
+          // Send below tweet to critic
+          val newTweet = new Tweet(created_at=Instant.now(),id=tweet.id, id_str=tweet.id_str, source="", text=tweet.text)
           
+          // We don't really care about the other key fields (used for display) to update.
+          val key = new PoliticianKey("_", "_", "_", receiveTweetUserScreenName)
+          updater ! (key, newTweet)
         }
-        // Send below tweet to critic
-        val newTweet = new Tweet(created_at=Instant.now(),id=tweet.id, id_str=tweet.id_str, source="", text=tweet.text)
-        
-        // We don't really care about the other key fields (used for display) to update.
-        val key = new PoliticianKey("_", "_", "_", receiveTweetUserScreenName)
-        updater ! (key, newTweet)
       }
     }
     // Start streaming for incoming tweets.
