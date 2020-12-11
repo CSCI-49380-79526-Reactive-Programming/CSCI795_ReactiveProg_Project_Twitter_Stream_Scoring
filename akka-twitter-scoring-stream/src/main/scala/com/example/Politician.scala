@@ -25,26 +25,12 @@ class PoliticianUpdate(val key : PoliticianKey, val positivity : Option[Double],
 // NOTE: Is equatable with PoliticianKey (for convience).
 class PoliticianRow(key_ : PoliticianKey, positivity_ : Double, pinocchio_ : Double) {
   private val key     = key_
-  val name            = new ReadOnlyStringWrapper(this, "name"      , key_.name )
-  val twitter_handle  = new ReadOnlyStringWrapper(this, "twitter_handle"    , key_.twitter_handle)
-  val party           = new ReadOnlyStringWrapper(this, "party"     , key_.party)
-  val state           = new ReadOnlyStringWrapper(this, "state"     , key_.state)
-  val positivity      = new StringProperty(       this, "positivity", positivity_.toString)
-  val pinocchio       = new StringProperty(       this, "pinocchio" , pinocchio_.toString)
-
-  def canEqual(a: Any) = a.isInstanceOf[PoliticianRow]
-
-  override def equals(that: Any): Boolean =
-        that match {
-            case that: PoliticianKey => {
-                this.key == that
-            }
-            case that: PoliticianRow => {
-                that.canEqual(this) &&
-                this.key == that.key
-            }
-            case _ => false
-        }
+  val twitter_handle  = key_.twitter_handle
+  val name            = new ReadOnlyStringWrapper(this, "name"          , key_.name )
+  val party           = new ReadOnlyStringWrapper(this, "party"         , key_.party)
+  val state           = new ReadOnlyStringWrapper(this, "state"         , key_.state)
+  val positivity      = new StringProperty(       this, "positivity"    , positivity_.toString)
+  val pinocchio       = new StringProperty(       this, "pinocchio"     , pinocchio_.toString)
 }
 
 // Politician Actor which listens to the Twitter stream of the associated politician.

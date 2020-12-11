@@ -38,7 +38,7 @@ class Artist(rows_ : ObservableBuffer[PoliticianRow]) extends Actor {
   }
 
   def getRow(politician : PoliticianKey) : Option[PoliticianRow] = {
-    rows foreach (x => if (x.twitter_handle.value.equals(politician.twitter_handle)) { return Some(x) })
+    rows foreach (x => if (x.twitter_handle.equals(politician.twitter_handle)) { return Some(x) })
     return None
   }
 
