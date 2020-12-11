@@ -24,5 +24,5 @@ Presentation for CSCI 795 Reactive Programming Course - Hunter College FA'20
 - [X] Come up with scoring system and print to output
 
 Stretch goal:
-- [ ] Create Akka stream to log and process further back into history
+- [X] Create Akka stream to log and process further back into history
 - [X] Create UI to show data (plots, graphs, other fancy UI stuff)

@@ -1,5 +1,5 @@
 // Standard dependencies
-import akka.actor.{Actor, ActorRef, Props, ActorSystem}
+import akka.actor.{Actor, ActorRef, ActorSystem, Props}
 import com.github.tototoshi.csv._
 import java.io.File
 import java.time.Instant
@@ -64,7 +64,7 @@ object Main extends JFXApp {
     val begin   = Instant.parse(vec(28) + "T00:00:00.00Z")
     val finish  = Instant.parse(vec(29) + "T00:00:00.00Z")
     val key     = new PoliticianKey(name, party, state, twitter)
-    system.actorOf(Props(new Politician(secrets, critic, key, begin, finish)))
+    system.actorOf(Props(new Politician(secrets, critic, system.scheduler, key, begin, finish)))
     key
   }
 

@@ -3,7 +3,7 @@ package politician
 import java.time.temporal.ChronoUnit
 import java.time.Instant
 
-import akka.actor.{Actor, ActorRef}
+import akka.actor.{Actor, ActorRef, Scheduler}
 
 import scala.concurrent.Await
 import scala.concurrent.duration._
@@ -36,6 +36,7 @@ class PoliticianRow(key_ : PoliticianKey, positivity_ : Double, pinocchio_ : Dou
 // Politician Actor which listens to the Twitter stream of the associated politician.
 class Politician( secrets_            : TwitterSecrets
                 , val updater         : ActorRef
+                , scheduler           : Scheduler
                 , key_                : PoliticianKey
                 , val term_start      : Instant
                 , val term_end        : Instant
@@ -46,28 +47,34 @@ class Politician( secrets_            : TwitterSecrets
   val state          = key_.state
   val twitter_handle = key_.twitter_handle
 
-  private val (consumerToken, accessToken) = secrets_.getTokens()
-
   // Initial connection to Twitter to query the politician's Twitter user data
+  private val (consumerToken, accessToken) = secrets_.getTokens()
   private val restClient = new TwitterRestClient(consumerToken, accessToken)
+  getHistoricalTweets()
 
-  // Fetch historical tweets by handle
-  println("Fetching Historical Tweets: " + name + " - @" + twitter_handle)
-  private val historicalTweets = Await.result(restClient.userTimelineForUser(screen_name = twitter_handle, count = 25), Duration.Inf).data
+  // Wait 45 seconds,
+  // the query historical data a second time to
+  // catch messages that might have heppened during the start-up delta
+  implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
+  scheduler.scheduleOnce(Duration(45, SECONDS), self, ())
+  
+  def receive = {
+    case () => 
+      getHistoricalTweets()
+      restClient.shutdown()
+  }
 
-  restClient.shutdown()
+  def getHistoricalTweets() : Unit = {
+    // Fetch historical tweets by handle
+    println("Fetching Historical Tweets: " + name + " - @" + twitter_handle)
+    val historicalTweets = Await.result(restClient.userTimelineForUser(screen_name = twitter_handle, count = 25), Duration.Inf).data
 
-  // The following lines exist only to test the functionality of the Critic actor.
-  // It has the nice side effect of populating the GUI until we get real Twitter integration.
-  for (t <- historicalTweets) {
+    // The following lines exist only to test the functionality of the Critic actor.
+    // It has the nice side effect of populating the GUI until we get real Twitter integration.
+    for (t <- historicalTweets) {
       val tweet = new Tweet(created_at=Instant.now(),id=t.id,id_str=t.id_str, source="", text=t.text)
       updater ! (key,tweet)
+    }
   }
 
-  // val testTweet = new Tweet(created_at=Instant.now(),id=5,id_str="5", source="", text="We love scala! All aboard the scala train!")
-
-
-  def receive = {
-    case path : String => 
-  }
 }
