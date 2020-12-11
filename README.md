@@ -1,5 +1,16 @@
-# CSCI795_ReactiveProg_Project
-## Presentation for CSCI 795 Reactive Programming Course - Hunter College FA'20
+# CSCI 795 Reactive Programming<br>Hunter College FA'20
+
+## Twitter Stream Scoring Project
+### Overview
+Using Scala and the Akka actor framework, this project aims to demonstrate reactive programming principles/concepts
+by using Akka actors to process a live streaming data feed of Tweets from Twitter's API.
+
+This project will track the Tweets (historical and live) of 100 senators, and score their Tweets based on a
+sentiment analysis word list that was published by a another research project (http://www2.imm.dtu.dk/pubdb/pubs/6010-full.html),
+and generate a "positivity" score of these tweets.
+
+The results will then be displayed via a GUI table that will update in real-time based on tweets that we
+receive for the various politicians that we are tracking/scoring.
 
 ## Dev Setup
 ### Pre-reqs
