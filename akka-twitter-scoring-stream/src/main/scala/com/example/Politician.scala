@@ -1,16 +1,13 @@
 package politician
 
-import java.time.temporal.ChronoUnit
-import java.time.Instant
-
 import akka.actor.{Actor, ActorRef, Scheduler}
-
-import scala.concurrent.Await
-import scala.concurrent.duration._
-
+import akka.pattern.gracefulStop
 import com.danielasfregola.twitter4s.entities.Tweet
 import com.danielasfregola.twitter4s.TwitterRestClient
-
+import java.time.temporal.ChronoUnit
+import java.time.Instant
+import scala.concurrent.Await
+import scala.concurrent.duration._
 import scalafx.beans.property.{ReadOnlyStringWrapper, StringProperty}
 
 import tweet.TwitterSecrets
@@ -62,6 +59,7 @@ class Politician( secrets_            : TwitterSecrets
     case () => 
       getHistoricalTweets()
       restClient.shutdown()
+      gracefulStop(self, Duration(15,SECONDS))
   }
 
   def getHistoricalTweets() : Unit = {
