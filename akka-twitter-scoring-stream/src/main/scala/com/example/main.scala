@@ -20,8 +20,9 @@ import com.danielasfregola.twitter4s.entities.{AccessToken, ConsumerToken, Tweet
 import com.danielasfregola.twitter4s.entities.streaming.StreamingMessage
 
 // Our own classes
-import scorer.{Collator, Critic}
+import artist.{Artist}
 import politician.{Politician, PoliticianKey, PoliticianRow}
+import scorer.{Critic}
 import tweet.{TwitterScoring, TwitterSecrets}
 
 object Main extends JFXApp {
@@ -38,7 +39,8 @@ object Main extends JFXApp {
 
   // Set up the actor system and core actors
   val system = ActorSystem("Politician-Scoring")
-  val critic = system.actorOf(Props(new Critic(wordRanks, rows)), name = "critic")
+  val artist = system.actorOf(Props(new Artist(rows)), name = "artist")
+  val critic = system.actorOf(Props(new Critic(wordRanks, artist)), name = "critic")
 
   // Get the Twitter authentication secrets
   val secretsFile = "secrets.csv"

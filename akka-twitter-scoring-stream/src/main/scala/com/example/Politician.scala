@@ -18,6 +18,8 @@ import tweet.TwitterSecrets
 // Unique Politician key to identify politician within our system/UI/stream etc...
 class PoliticianKey(val name : String, val party : String, val state : String) {}
 
+class PoliticianUpdate(val key : PoliticianKey, val positivity : Option[Double], val pinocchio : Option[Double]) {}
+
 // Politician row data for UI
 // A row for a politician in the GUI.
 // NOTE: Is equatable with PoliticianKey (for convience).
