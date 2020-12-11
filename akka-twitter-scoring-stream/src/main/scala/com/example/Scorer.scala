@@ -29,13 +29,13 @@ class Collator (updater_ : ActorRef) extends Actor {
 // Listens for updates from the Politician actors for new Tweets to be processed.
 class Critic(wordRanking_ : Map[String,Int], rows_ : ObservableBuffer[PoliticianRow]) extends Actor {
 
-  private val scoring   = new scala.collection.mutable.HashMap[PoliticianKey, TwitterScoring]
+  private val scoring   = new scala.collection.mutable.HashMap[String, TwitterScoring]
   private var rows      = rows_
   private var wordRanks = wordRanking_
 
   def receive = {
     case (politician: PoliticianKey, tweet: Tweet) =>
-       scoring.get(politician) match {
+       scoring.get(politician.twitter_handle) match {
          case Some(twitterScore) =>
            // We already have a score for this politician
            // We update the state
@@ -62,15 +62,15 @@ class Critic(wordRanking_ : Map[String,Int], rows_ : ObservableBuffer[Politician
          case None =>
            // Politician is new
            // New to add them to the scoring and the GUI
-           scoring.addOne(politician, new TwitterScoring(wordRanks, tweet))
-           val positivity = scoring(politician).positivityScore
-           val pinocchio  = scoring(politician).pinocchioScore
+           scoring.addOne(politician.twitter_handle, new TwitterScoring(wordRanks, tweet))
+           val positivity = scoring(politician.twitter_handle).positivityScore
+           val pinocchio  = scoring(politician.twitter_handle).pinocchioScore
            rows.append(new PoliticianRow(politician, positivity, pinocchio))
        }
   }
 
   def getRow(politician : PoliticianKey) : Option[PoliticianRow] = {
-    rows foreach (x => if (x.equals(politician)) { return Some(x) })
+    rows foreach (x => if (x.twitter_handle.value.equals(politician.twitter_handle)) { return Some(x) })
     return None
   }
 
