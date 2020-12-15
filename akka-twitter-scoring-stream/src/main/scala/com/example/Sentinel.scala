@@ -1,4 +1,5 @@
 package sentinel
+import io.AnsiColor._
 
 import akka.actor.{Actor, ActorRef}
 import java.time.Instant
@@ -32,7 +33,7 @@ class Sentinel(secrets_ : TwitterSecrets, updater_ : ActorRef, politiciansToStre
     def getTwitterID(restClient : TwitterRestClient)(p: PoliticianKey) : Long = {
       // println("Connecting to live twitter stream: @" + p.twitter_handle)
       val userData = Await.result(restClient.user(screen_name = p.twitter_handle), Duration.Inf).data
-      println("Connecting to live twitter stream: @" + p.twitter_handle + " - ID: " + userData.id)
+      println(s"${RED}Connecting to live twitter stream: @" + p.twitter_handle + " - ID: " + userData.id)
       userData.id
     }
 
@@ -46,7 +47,7 @@ class Sentinel(secrets_ : TwitterSecrets, updater_ : ActorRef, politiciansToStre
         // Only send/update if the ID was part of the senator IDs we are tracking.
         // This prevents mentions/retweets from triggering score updates.
         if (twitterIDsToStream.contains(receiveTweetUserId)) {
-          println("\n[UPDATING SCORE] @" + receiveTweetUserScreenName + " (" + receiveTweetUserId + ") : " + tweet.text + "\n")
+          println(s"\n${RED}${CYAN_B}[UPDATING SCORE] @" + receiveTweetUserScreenName + " (" + receiveTweetUserId + ") : " + tweet.text + "\n")
 
           // Send below tweet to critic
           val newTweet = new Tweet(created_at=Instant.now(),id=tweet.id, id_str=tweet.id_str, source="", text=tweet.text)
