@@ -15,16 +15,17 @@ receive for the various politicians that we are tracking/scoring.
 ## Dev Setup
 ### Pre-reqs
 1. Sign up for a Twitter Dev Account (Takes 2-3 days for approval)
-    1. This will give you the account level `<API_KEY>` and `<API_TOKEN>`
+    1. This will give you the account level token pair `<API_KEY>` and `<API_TOKEN>`
 2. Create an app in your dev portal/account.
-    1. Then generate an app level access token for the `<APP_ACCESS_TOKEN>` and `<APP_ACCESS_KEY>`
-3. In the provided `secrets.csv` file in the project folder, fill in the necessary tokens that you generate in the previous steps.
+    1. Then generate an app level access token pair for the `<APP_ACCESS_TOKEN>` and `<APP_ACCESS_KEY>`
+3. Add these tokens in the `secrets.csv` file as outlined in the steps below.
 
 ### Run Instructions
 1. Checkout this repo.
 2. `cd` into the root of this project
-3. Run `./sbt` to run the build tool.
-4. Run `reStart` to run the application and hot restart the app after code changes.
+3. In the provided `secrets.csv` file in the project folder, fill in the necessary tokens that you generate in the previous pre-req steps.
+4. Run `./sbt` to run the build tool.
+5. Run `reStart` to run the application and hot restart the app after code changes.
 
 - Notes: Current API streaming service only supports limited # of connections over a time interval. If you run into any 400/500 errors regarding connection threshold, simply stop the program and try again after a few minutes.
 
